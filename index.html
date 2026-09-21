@@ -1,0 +1,2003 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>⚡ MEAM-OWL: Motif Enrichment Analysis Modules on the Web (Lite)</title>
+    <link rel="icon" type="image/png" href="MEAM-OWL.png">
+    <script src="motif_db.js"></script>
+    <script src="pako.min.js"></script>
+
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 25px; background: #fdfdfd; color: #2c3e50; line-height: 1.5; }
+        .container { max-width: 1400px; margin: 0 auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+        h2 { border-bottom: 2px solid #3498db; padding-bottom: 10px; color: #2c3e50; margin-top: 0; }
+        .section-box { border: 1px solid #e0e0e0; padding: 20px; border-radius: 8px; background: #fff; margin-bottom: 25px; box-shadow: 0 2px 8px rgba(0,0,0,0.02); box-sizing: border-box; }
+        .section-title { font-size: 18px; font-weight: bold; margin-bottom: 15px; border-left: 4px solid #3498db; padding-left: 10px; color: #2c3e50; }
+        .main-title-container {
+            display: flex;
+            align-items: center;
+            gap: 12px; /* 文字とロゴの間の隙間 */
+        }
+        
+        .title-logo {
+            height: 54px; /* タイトルの文字の高さ（h2）に自然になじむサイズ */
+            width: auto;  /* 縦横比を維持 */
+            object-fit: contain;
+            /* もしロゴ画像の背景が透明（透過PNG）ではない場合、ここで少し余白を調整できます */
+        }
+        
+        .extractor-flex { display: flex; gap: 25px; margin-bottom: 15px; }
+        .extractor-flex > div { flex: 1; }
+        
+        .engine-dual-layout { display: flex; gap: 20px; margin-bottom: 25px; width: 100%; box-sizing: border-box; }
+        .engine-column { flex: 1; min-width: 450px; display: flex; flex-direction: column; box-sizing: border-box; }
+
+        label { font-weight: bold; display: block; margin-bottom: 5px; color: #34495e; }
+        
+        textarea { width: 100%; height: 140px; font-family: "Courier New", monospace; padding: 10px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; resize: vertical; background: #fafafa; display: block; }
+        
+        .file-input-container { margin-bottom: 10px; background: #edf2f7; padding: 8px; border-radius: 6px; display: flex; align-items: center; gap: 10px; box-sizing: border-box; }
+        .controls-inner { background: #f1f2f6; padding: 12px; border-radius: 6px; margin-bottom: 15px; display: flex; align-items: center; gap: 15px; flex-wrap: wrap; font-size: 14px; box-sizing: border-box; }
+        .btn-group { display: flex; gap: 10px; flex-wrap: wrap; }
+        
+        button { border: none; padding: 11px 20px; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: bold; transition: all 0.2s; }
+        .btn-homer { background: #2ecc71; color: white; } .btn-homer:hover { background: #27ae60; }
+        .btn-utest { background: #3498db; color: white; } .btn-utest:hover { background: #2980b9; }
+        .btn-extend { background: #9b59b6; color: white; } .btn-extend:hover { background: #8e44ad; }
+        .btn-drim { background: #e67e22; color: white; } .btn-drim:hover { background: #d35400; }
+        .btn-pearson { background: #1abc9c; color: white; } .btn-pearson:hover { background: #16a085; }
+        
+        input[type="text"], input[type="number"] { padding: 6px 10px; border-radius: 4px; border: 1px solid #ccc; font-size: 14px; box-sizing: border-box; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 14px; }
+        th, td { border: 1px solid #e0e0e0; padding: 10px 12px; text-align: left; }
+        th { background: #f4f6f7; color: #34495e; font-weight: bold; } tr:hover { background: #f9f9f9; }
+        .kmer-text { font-family: "Courier New", monospace; font-weight: bold; font-size: 16px; color: #2c3e50; }
+        .motif-badge { padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; display: inline-block; margin: 2px; }
+        .badge-jaspar { background: #e8f4fd; color: #2980b9; } .badge-place { background: #e8f8f5; color: #117a65; } .badge-dapseq { background: #fef9e7; color: #b7950b; }
+        .child-kmers { color: #7f8c8d; font-size: 12px; display: block; margin-top: 4px; font-family: "Courier New", monospace; }
+        .weblogo-box { display: inline-flex; gap: 3px; background: #fff; border: 1px solid #dcdde1; border-radius: 6px; padding: 4px 10px; height: 42px; align-items: flex-end; box-shadow: inset 0 1px 3px rgba(0,0,0,0.04); box-sizing: border-box; }
+        .logo-col { display: flex; flex-direction: column-reverse; align-items: center; width: 18px; height: 100%; justify-content: flex-start; box-sizing: border-box; }
+        .logo-char-wrapper { width: 100%; display: flex; align-items: flex-end; justify-content: center; overflow: visible; }
+        .logo-char { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-weight: 600; font-size: 32px; line-height: 1; display: block; transform-origin: bottom; white-space: nowrap; }
+        .select-col-box { font-size: 14px; padding: 6px 12px; border-radius: 4px; border: 1px solid #e67e22; background: #fff3e0; color: #d35400; font-weight: bold; display: none; }
+        .help-title { font-size: 15px; font-weight: bold; color: #2c3e50; margin-top: 12px; margin-bottom: 4px; display: flex; align-items: center; gap: 6px; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h2 class="main-title-container">
+        <span>⚡ MEAM-OWL Motif Enrichment Analysis Modules on the Web (Lite)</span>
+        <img src="MEAM-OWL.png" alt="SABE-OWL Logo" class="title-logo">
+    </h2>    
+    <div id="dbLoadStatus" style="font-size:13px; font-weight:bold; margin-bottom:15px;"></div>
+
+    <!-- 🧬 Dual Engine Layout Container -->
+    <div class="engine-dual-layout">
+        
+        <!-- 🔥 【Left Column】 Mode A: 2-Group Comparison Analysis Board -->
+        <div class="section-box engine-column" style="border-color: #2980b9 !important; border-width: 1.5px;">
+            <div class="section-title" style="border-left-color: #2980b9;">[Mode A] Target vs Background Enrichment Analysis</div>
+            
+            <div class="controls-inner" style="padding: 10px; font-size: 13px;">
+                <div style="display: flex; gap: 15px; flex-wrap: wrap; align-items: center; width: 100%;">
+                    <div>
+                        <label for="kInputA" style="display:inline; margin-right:5px;">k-mer Size:</label>
+                        <input type="text" id="kInputA" value="4-6" style="width: 70px;" placeholder="e.g. 4-6">
+                    </div>
+                    <div>
+                        <input type="checkbox" id="ignoreRCA" style="cursor:pointer;"><label for="ignoreRCA" style="display:inline; cursor:pointer; font-weight:normal; margin-left:3px;">Forward Strand Only</label>
+                    </div>
+                    <div>
+                        <label for="enableClusterA" style="display:inline; cursor:pointer;"><input type="checkbox" id="enableClusterA" checked> Cluster</label>
+                        <label for="clusterCoreLenA" style="font-weight:normal;">(<input type="number" id="clusterCoreLenA" value="4" min="3" max="8" style="width:35px; padding:2px;">m)</label>
+                    </div>
+                    <div style="margin-left: auto; display: flex; gap: 5px; font-size: 12px;">
+                        <label style="font-weight:normal; cursor:pointer;"><input type="checkbox" id="dbJasparA" checked> JASPAR</label>
+                        <label style="font-weight:normal; cursor:pointer;"><input type="checkbox" id="dbPlaceA" checked> PLACE</label>
+                        <label style="font-weight:normal; cursor:pointer;"><input type="checkbox" id="dbDapSeqA" checked> CIS-BP</label>
+                    </div>
+                </div>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 12px; flex: 1;">
+                <div style="display: flex; flex-direction: column; flex: 1;">
+                    <label>🎯 Target Sequences (FASTA format)</label>
+                    <div class="file-input-container" style="padding: 4px; margin-bottom: 4px;"><input type="file" id="file1" accept=".fasta,.fa,.txt" onchange="loadFile('file1', 'fasta1')" style="font-size:11px;"></div>
+                    <textarea id="fasta1" style="height: 120px; flex: 1;" placeholder=">gene_id_1&#10;ATGCAGTCGATCGATCGATCGATC..."></textarea>
+                </div>
+                <div style="display: flex; flex-direction: column; flex: 1;">
+                    <label>🌿 Background Sequences (FASTA / Leave blank to use random sequences)</label>
+                    <div class="file-input-container" style="padding: 4px; margin-bottom: 4px;"><input type="file" id="file2" accept=".fasta,.fa,.txt" onchange="loadFile('file2', 'fasta2')" style="font-size:11px;"></div>
+                    <textarea id="fasta2" style="height: 120px; flex: 1;" placeholder=">bg_id_1&#10;ATGCAGTCGATCGATCGATCGATC..."></textarea>
+                </div>
+            </div>
+            
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 15px; border-top: 1px dashed #eee; padding-top: 10px; flex-wrap: wrap; gap: 10px;">
+                <div style="font-size: 13px;">
+                    <label for="sampleSize" style="display:inline; margin-right:5px;">Max Background Size:</label>
+                    <input type="number" id="sampleSize" value="1000" min="10" max="100000" style="width: 75px; padding: 3px;">
+                </div>
+                <div class="btn-group" style="gap: 5px;">
+                    <button class="btn-homer" style="padding: 8px 12px; font-size: 12px;" onclick="runAnalysis('homer')">❶ HOMER-Like</button>
+                    <button class="btn-utest" style="padding: 8px 12px; font-size: 12px;" onclick="runAnalysis('utest')">❷ Mann-Whitney U</button>
+                    <button class="btn-extend" style="padding: 8px 12px; font-size: 12px;" onclick="runAnalysis('extend')">❸ Extended Core</button>
+                </div>
+            </div>
+        </div>
+        <!-- 🚀 【Right Column】 Mode B: Genome-Wide Expression Rank & Correlation Board -->
+        <div class="section-box engine-column" style="border-color: #e67e22 !important; border-width: 1.5px;">
+            <div class="section-title" style="border-left-color: #e67e22;">[Mode B] Expression-Based Enrichment Analysis</div>
+            
+            <div class="controls-inner" style="background: #fff3e0; padding: 10px; font-size: 13px;">
+                <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center; width: 100%;">
+                    <div>
+                        <label for="kInputB" style="display:inline; margin-right:3px; color:#d35400; font-weight:bold;">k-mer Size:</label>
+                        <input type="text" id="kInputB" value="4-5" style="width: 60px;" placeholder="e.g. 4-5">
+                    </div>
+                    <div style="font-size:12px;">ID Col Index: <input type="number" id="idColIdx" value="1" min="1" max="100" style="width: 35px; padding: 2px;"></div>
+                    <div style="font-size:12px;">Expression Col(s): <input type="text" id="expColIdxs" value="5" style="width: 55px; padding: 2px;" placeholder="e.g. 5,6"></div>
+                    <div>
+                        <input type="checkbox" id="ignoreRCB" style="cursor:pointer;"><label for="ignoreRCB" style="display:inline; cursor:pointer; font-weight:normal; margin-left:3px; color:#d35400;">Strand Specific</label>
+                    </div>
+                    <div>
+                        <label style="cursor:pointer;"><input type="checkbox" id="enableClusterB" checked> Aggregate</label>
+                        <label style="font-weight:normal;">(<input type="number" id="clusterCoreLenB" value="4" min="3" max="8" style="width:35px; padding:2px;">m)</label>
+                    </div>
+                    <div style="margin-left: auto; display: flex; gap: 5px; font-size: 12px;">
+                        <label style="font-weight:normal; cursor:pointer; color:#d35400;"><input type="checkbox" id="dbJasparB" checked> JASPAR</label>
+                        <label style="font-weight:normal; cursor:pointer; color:#d35400;"><input type="checkbox" id="dbPlaceB" checked> PLACE</label>
+                        <label style="font-weight:normal; cursor:pointer; color:#d35400;"><input type="checkbox" id="dbDapSeqB" checked> CIS-BP</label>
+                    </div>
+                </div>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 12px; flex: 1;">
+                <div style="display: flex; flex-direction: column; flex: 1;">
+                    <label>🧬 Transcriptome Sequences (FASTA format)</label>
+                    <div class="file-input-container" style="padding: 4px; margin-bottom: 4px;"><input type="file" id="fileAll" accept=".fasta,.fa,.txt" onchange="loadFile('fileAll', 'fastaAll')" style="font-size:11px;"></div>
+                    <textarea id="fastaAll" style="height: 120px; flex: 1;" placeholder=">AT1G01010.1&#10;ATGCAGTCGATCGATCGATCGATC..."></textarea>
+                </div>
+                <div style="display: flex; flex-direction: column; flex: 1;">
+                    <label>📊 Expression Profile Matrix (Tab/Comma Delimited Text File)</label>
+                    <div class="file-input-container" style="padding: 4px; margin-bottom: 4px;"><input type="file" id="fileExp" accept=".txt,.csv" onchange="loadFile('fileExp', 'textExp')" style="font-size:11px;"></div>
+                    <textarea id="textExp" style="height: 120px; flex: 1;" placeholder="GeneID,Description,LogFC_Control,LogFC_Treatment&#10;AT1G01010.1,kinase,0.0,5.42&#10;AT1G01020.2,synthase,0.0,-2.11"></textarea>
+                </div>
+            </div>
+            
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 15px; border-top: 1px dashed #e67e22; padding-top: 10px; flex-wrap: wrap; gap: 10px;">
+                <div style="font-size: 13px;">
+                    <label for="clipCount" style="color:#34495e; display: inline;">⚙️ Frequency Clipping Cap: </label>
+                    <input type="number" id="clipCount" value="3" min="1" max="20" style="width: 45px; padding: 3px;"> Max Hits
+                </div>
+                <div class="btn-group" style="gap: 5px;">
+                    <button class="btn-drim" style="padding: 8px 12px; font-size: 12px;" onclick="runRankedAnalysis('drim')">❹ DRIMust Model</button>
+                    <button class="btn-pearson" style="padding: 8px 12px; font-size: 12px;" onclick="runRankedAnalysis('pearson')">❺ Pearson Correlation</button>
+                </div>
+            </div>
+        </div>
+
+    </div> <!-- Close .engine-dual-layout wrapper -->
+    <!-- 📊 Analytics Reporting Hub & Output Table Interface -->
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 30px; border-bottom: 2px solid #ccc; padding-bottom: 8px; flex-wrap: wrap; gap: 15px;">
+        <h3 id="resultTitle" style="margin:0;">📊 Analysis Profiles (Revealing Top 100 Highly Significant Motifs)</h3>
+        
+        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-left: auto;">
+            <!-- Column Batch Pulldown Menu Selector -->
+            <select id="colSelectDropdown" class="select-col-box" onchange="switchResultColumn(this.value)"></select>
+
+            <!-- 🎻 Dynamic Violin Area Display Switches -->
+            <button id="toggleViolinBtn" style="background: #9b59b6; color: white; font-size: 14px; padding: 8px 16px; border-radius: 4px; border: none; cursor: pointer; font-weight: bold; display: none;" onclick="toggleViolinContainer()">🎻 Display/Hide Violin Plot</button>
+            <button id="downloadViolinBtn" style="background: #8e44ad; color: white; font-size: 14px; padding: 8px 16px; border-radius: 4px; border: none; cursor: pointer; font-weight: bold; display: none;" onclick="downloadViolinPng()">📥 Export Plot to PNG (300dpi)</button>
+
+            <!-- Full Batch CSV Exporter Link -->
+            <button id="downloadCsvBtn" style="background: #f39c12; color: white; font-size: 14px; padding: 8px 16px; border-radius: 4px; border: none; cursor: pointer; font-weight: bold; display: none;" onclick="exportResultsToCsv()">📥 Export Matrix to CSV File</button>
+        </div>
+    </div>
+
+    <!-- 🎻 Quantitative Signal Density Distribution Stage Container -->
+    <div id="violinPlotContainer" class="section-box" style="border-color: #9b59b6 !important; border-width:1.5px; margin-top: 15px; display: none; background: #faf8fc; padding: 15px; border-radius: 8px;">
+        
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 15px; margin-bottom: 12px; background: #fff; padding: 8px 12px; border-radius: 5px; border: 1px solid #e0d0eb;">
+            <h4 id="violinTitle" style="margin: 0; color: #9b59b6; font-size: 14px; border-left: 3px solid #9b59b6; padding-left: 8px; flex: 1; min-width: 250px;"></h4>
+            
+            <!-- 🔍 Manual Y-Axis Dimension Scoping Dashboard Panels -->
+            <div style="font-size: 12px; font-weight: bold; color: #34495e; display: flex; align-items: center; gap: 8px;">
+                🔍 Y-Axis Limits Panel: 
+                <label style="font-weight:normal; margin-bottom:0;">Min: <input type="number" id="violinYMin" step="0.5" placeholder="Auto" style="width: 55px; padding: 2px 4px; font-size: 11px; border: 1px solid #ccc; border-radius:3px;"></label>
+                <label style="font-weight:normal; margin-bottom:0;">Max: <input type="number" id="violinYMax" step="0.5" placeholder="Auto" style="width: 55px; padding: 2px 4px; font-size: 11px; border: 1px solid #ccc; border-radius:3px;"></label>
+                <button style="background: #9b59b6; color: white; border: none; padding: 3px 8px; font-size: 11px; border-radius: 3px; cursor: pointer; font-weight: bold;" onclick="replotCurrentViolin()">🔄 Refresh Plot</button>
+                <button style="background: #7f8c8d; color: white; border: none; padding: 3px 8px; font-size: 11px; border-radius: 3px; cursor: pointer; font-weight: normal;" onclick="resetViolinYRange()">Reset</button>
+            </div>
+        </div>
+        
+        <div style="display: flex; gap: 20px; flex-wrap: wrap; align-items: flex-start; justify-content: center;">
+            <!-- Graphics Stage Wrapper -->
+            <div id="violinPngWrapper" style="background: white; padding: 10px; border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); min-width: 600px; overflow-x: auto;"></div>
+            
+            <!-- Statistical Evaluation Documentation Panel -->
+            <div style="flex: 1; min-width: 250px; font-size: 13px; color: #555; background: #fff; padding: 12px; border-radius: 6px; border: 1px solid #e0d0eb; line-height: 1.4;">
+                <strong style="color: #9b59b6; display: block; margin-bottom: 6px;">📊 Interpreting Your Plot</strong>
+                Transcripts are automatically classified into discrete cohorts based on their localized <b>motif copy frequency counts (0, 1, 2, or 3+ occurrences)</b>. The vertical geometry of each colored violin reveals the continuous <b>expression distribution pattern</b> of that group. The bold horizontal black bar tracks the exact cohort <b>Median value</b> to assist in quick dosage-dependent response evaluations.
+            </div>
+        </div>
+    </div>
+
+    <!-- Active Analytics Evaluation Matrix Display Screen Grid -->
+    <table id="resultTable">
+        <thead>
+            <tr id="tableHeader">
+                <th>k-mer Fragment (Sequence / Core)</th>
+                <th>Evaluation Engine</th>
+                <th>Enrichment Metric</th>
+                <th>Statistical Breakdown Metadata</th>
+                <th>p-value</th>
+                <th>FDR (BH Adjusted)</th>
+                <th>Target Reference Database Matches</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td colspan="7" style="text-align: center; color: #7f8c8d; font-style: italic; padding: 25px;">
+                    No operational profile run recorded. Complete Step 0, configure an engine above, and select an execution pathway.
+                </td>
+            </tr>
+        </tbody>
+    </table>
+    
+        <!-- Sequence Extraction Engine -->
+    <div id="dbLoadStatus" style="font-size:13px; font-weight:bold; margin-bottom:15px;"></div>
+
+    <!-- Sequence Extraction Engine Based On Genome Fasta and GFF Files -->
+    <div class="section-box" style="border-color: #34495e; margin-top: 20px;">
+        <div class="section-title" style="border-left-color: #34495e;">Sequence Extraction Engine Based On Genome Sequence and Annotation Gff Files</div>
+        <div class="controls-inner" style="background: #eaeded;">
+            <div>
+                <label style="display:inline; font-weight:bold;">Region:</label>
+                <select id="regionType" onchange="toggleRegionInputs()">
+                    <option value="gene">Gene (exon + intron)</option>
+                    <option value="cDNA">cDNA (exon)</option>
+                    <option value="cds_feat">CDS (exon - UTR)</option>
+                    <option value="other">Other feature (Any in the third column of GFF)</option>
+                    <option value="custom">Custom (relative to the base position)</option>
+                </select>
+            </div>
+            
+            <!-- Other feature (initially hidden) -->
+            <div id="otherFeatureBox" class="init-hidden" style="margin-left:10px;">
+                <label style="display:inline; font-weight:normal;">Feature: </label>
+                <input type="text" id="otherFeatureName" value="five_prime_UTR" style="width:130px;">
+            </div>
+
+            <!-- For Custom (initially hidden) -->
+            <div id="customAnchorBox" class="init-hidden" style="margin-left:10px; align-items:center; gap:10px;">
+                <label style="display:inline; font-weight:normal;">Base position:</label>
+                <select id="customAnchor">
+                    <option value="cdna_5">cDNA 5' end</option>
+                    <option value="cdna_3">cDNA 3' end</option>
+                    <option value="cds_5">CDS 5' end</option>
+                    <option value="cds_3">CDS 3' end</option>
+                </select>
+                <label style="display:inline; font-weight:normal;">Upstream (bp): <input type="number" id="upBp" value="500" style="width:60px;"></label>
+                <label style="display:inline; font-weight:normal;">Downstream (bp): <input type="number" id="downBp" value="0" style="width:60px;"></label>
+            </div>
+
+            <!-- Checkbox For Using Representative Transcript Variant (default: OFF) -->
+            <div style="margin-left:15px; display:flex; align-items:center;">
+                <input type="checkbox" id="longestCdsOnly" style="cursor:pointer;">
+                <label for="longestCdsOnly" style="display:inline; cursor:pointer; font-weight:normal; margin-left:5px;">Use a representive (longest CDS-containing) variant per gene</label>
+            </div>
+
+            <button class="btn-extract-run" style="background:#fa55ea; margin-left:15px;" onclick="extractGenomicRegionsFromFile()">⚡ Extract Sequences</button>
+            
+            <div id="injectGroup" style="margin-top: 15px; display: none; gap: 15px; background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #ccc; flex-wrap: wrap;">
+                
+                <!-- Real-time Header Display Panel -->
+                <div style="flex: 1.2; min-width: 300px; display: flex; flex-direction: column; gap: 4px;">
+                    <span style="font-size: 12px; font-weight: bold; color: #2c3e50;">👁️ Processed ID Preview:</span>
+                    <div id="injectPreviewBox" style="background: #fff; border: 1px solid #ddd; padding: 10px; border-radius: 4px; font-family: 'Courier New', monospace; font-size: 12px; white-space: pre-wrap; max-height: 90px; overflow-y: auto; color: #27ae60; font-weight: bold; box-shadow: inset 0 1px 3px rgba(0,0,0,0.05);"></div>
+                </div>
+
+                <!-- ID Processing Panel -->
+                <div style="flex: 2; min-width: 420px; display: flex; flex-direction: column; gap: 10px;">
+                    <!-- 1. Deletion Operation Panel -->
+                    <div style="font-size: 12px; font-weight: bold; color: #2c3e50; display: flex; gap: 15px; flex-wrap: wrap; align-items: center; border-bottom: 1px dashed #ddd; padding-bottom: 8px;">
+                        <span style="background: #e74c3c; color: white; padding: 1px 6px; border-radius: 3px; font-size: 10px; font-weight: bold;">Delete</span>
+                        <div>Delete Prefix: <input type="text" id="injectStripPrefix" placeholder="E.g., gene:" style="width: 75px; padding: 3px 5px; font-size: 11px; border-radius: 3px; border: 1px solid #ccc;" oninput="updateInjectPreview()"></div>
+                        <div>Delete Suffix: <input type="text" id="injectStripSuffixText" placeholder="E.g., -mRNA" style="width: 75px; padding: 3px 5px; font-size: 11px; border-radius: 3px; border: 1px solid #ccc;" oninput="updateInjectPreview()"></div>
+                        <div>
+                            <input type="checkbox" id="injectStripSuffix" style="cursor:pointer;" onchange="updateInjectPreview()"> <label for="injectStripSuffix" style="cursor:pointer; font-weight: normal;">Delete versions (such as .1) at the end</label>
+                        </div>
+                    </div>
+                    
+                    <!-- 2. Addition Operation Panel -->
+                    <div style="font-size: 12px; font-weight: bold; color: #2c3e50; display: flex; gap: 15px; flex-wrap: wrap; align-items: center;">
+                        <span style="background: #2ecc71; color: white; padding: 1px 6px; border-radius: 3px; font-size: 10px; font-weight: bold;">Add</span>
+                        <div>Add Prefix: <input type="text" id="injectPrefix" placeholder="E.g., gene:" style="width: 75px; padding: 3px 5px; font-size: 11px; border-radius: 3px; border: 1px solid #ccc;" oninput="updateInjectPreview()"></div>
+                        <div>Add Suffix: <input type="text" id="injectSuffix" placeholder="E.g., .1" style="width: 75px; padding: 3px 5px; font-size: 11px; border-radius: 3px; border: 1px solid #ccc;" oninput="updateInjectPreview()"></div>
+                    </div>
+
+                    <!-- 3. Ingestion Buttons -->
+                    <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 5px; border-top: 1px solid #ddd; padding-top: 8px;">
+                        <button class="btn-inject" style="background: #27a1fa; padding: 6px 12px; font-size: 12px;" onclick="injectExtractedData('A-Target')">🎯 Use As Mode A Target</button>
+                        <button class="btn-inject" style="background: #27ae60; padding: 6px 12px; font-size: 12px;" onclick="injectExtractedData('A-Background')">🌿 Use As Mode A Background</button>
+                        <button class="btn-inject" style="background:#e67e22; padding: 6px 12px; font-size: 12px;" onclick="injectExtractedData('B')">📊 Use As Mode B All Sequences</button>
+                        <button style="background:#7f8c8d; color:white; padding: 6px 12px; font-size: 12px;" onclick="downloadExtractedFasta()">📥 Save As FASTA</button>
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+        
+        <!-- Genome- and GFF-Derived Sequence Generator (With GZ Allowed) -->
+        <div class="extractor-flex" style="margin-bottom: 10px;">
+            
+            <div style="flex: 1;">
+                <label>🌐 Genome FASTA (.fa / .fasta / .gz)</label>
+                <div class="file-input-container">
+                    <input type="file" id="fileRefFa" accept=".fasta,.fa,.fna,.gz">
+                </div>
+            </div>
+            
+            <div style="flex: 1;">
+                <label>🧬 Annotation GFF3 / GTF (.gff / .gff3 / .gtf / .gz)</label>
+                <div class="file-input-container">
+                    <input type="file" id="fileGff" accept=".gff,.gff3,.gtf,.gz">
+                </div>
+            </div>
+            
+            <!-- 🎯 Mode A Support: Target Gene ID Extraction Panel -->
+            <div style="flex: 1.6; background: #e8f4fd; border: 1px dashed #2980b9; padding: 10px; border-radius: 6px; display: flex; flex-direction: column; gap: 6px;">
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                    <label style="color: #2980b9; margin: 0; font-size: 13px; font-weight: bold;">🎯 Gene ID Filter (CSV/TSV/TXT対応)</label>
+                    <button type="button" style="background: #e74c3c; color: white; border: none; padding: 1px 6px; font-size: 10px; border-radius: 3px; cursor: pointer;" onclick="resetIdFilterFile()">クリア</button>
+                </div>
+                
+                <input type="file" id="fileFilterIds" accept=".csv,.tsv,.txt" style="font-size: 11px;">
+                
+                <!-- 🌟 FULL MODIFICATION MATRIX PANEL FOR THE INPUT FILTER IDs -->
+                <div style="font-size: 11px; background: #fff; padding: 6px; border-radius: 4px; border: 1px solid #b9d7ea; display: flex; flex-direction: column; gap: 4px; color: #333;">
+                    <div style="display: flex; gap: 8px; align-items: center; font-weight: bold;">
+                        <div>Gene ID Column: <input type="number" id="filterIdColIdx" value="1" min="1" max="100" style="width: 35px; padding: 1px; font-size: 11px; border: 1px solid #ccc; border-radius:3px;"></div>
+                        <div id="filterLoadStatus" style="color: #7f8c8d; font-weight: normal; font-style: italic; margin-left: auto;">File Not Selected</div>
+                    </div>
+                    
+                    <!-- Row A: Removal Operations -->
+                    <div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center; border-top: 1px dashed #e2e8f0; padding-top: 4px;">
+                        <span style="background: #e74c3c; color: white; padding: 0px 4px; border-radius: 2px; font-size: 9px; font-weight: bold;">Delete</span>
+                        <div>Prefix: <input type="text" id="filterStripPrefix" placeholder="E.g., gene:" style="width: 55px; padding: 1px; font-size: 10px; border: 1px solid #ccc; border-radius:2px;"></div>
+                        <div>Suffix: <input type="text" id="filterStripSuffix" placeholder="E.g., -mRNA" style="width: 55px; padding: 1px; font-size: 10px; border: 1px solid #ccc; border-radius:2px;"></div>
+                        <div style="display: flex; align-items: center;"><input type="checkbox" id="filterStripVersion" style="cursor:pointer; transform: scale(0.85);"><label for="filterStripVersion" style="font-size:10px; font-weight:normal; cursor:pointer;">Version At the End</label></div>
+                    </div>
+
+                    <!-- Row B: Addition Operations (🌟 NEW FIELDS INTEGRATED) -->
+                    <div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center; border-top: 1px dashed #e2e8f0; padding-top: 4px;">
+                        <span style="background: #2ecc71; color: white; padding: 0px 4px; border-radius: 2px; font-size: 9px; font-weight: bold;">Add</span>
+                        <div>Prefix: <input type="text" id="filterAddPrefix" placeholder="E.g., AT" style="width: 55px; padding: 1px; font-size: 10px; border: 1px solid #ccc; border-radius:2px;"></div>
+                        <div>Suffix: <input type="text" id="filterAddSuffix" placeholder="E.g., .1" style="width: 55px; padding: 1px; font-size: 10px; border: 1px solid #ccc; border-radius:2px;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="extractionStatus" style="font-size:13px; font-weight:bold; color:#2980b9; margin-top:5px;"></div>
+    </div>
+    
+    <!-- 📄 Integrated Reference Manual & Help Guide Documentation -->
+    <div class="section-box" style="margin-top: 40px; background: #f8fafc; border-color: #cbd5e1;">
+        <div class="section-title" style="border-left-color: #64748b; font-size: 16px;">📄 Analytical Application Documentation & Operations Manual</div>
+        <div style="font-size: 13px; color: #334155; line-height: 1.6; display: flex; gap: 20px; flex-wrap: wrap;">
+            
+            <div style="flex: 1; min-width: 280px;">
+                <strong style="color: #1e293b; display: block; margin-bottom: 5px;">⚡ Step 0: Context Extraction Pathway</strong>
+                <ul style="margin: 0; padding-left: 20px;">
+                    <li><b>GZIP Stream Extraction Engine:</b> Automatically handles native unzipping files using sequential byte-scans. Plain-text inputs are also detected and processed automatically.</li>
+                    <li><b>Dynamic ID Filtering:</b> Upload any custom gene/transcript list table (CSV/TSV/TXT) to isolate a specific subset of target matches. You can dynamically add or strip custom string identifiers.</li>
+                    <li><b>Silent Injection:</b> Transfers massive genomic records into evaluation textareas in under 0.1 seconds without triggering page freezing or confirmation dialog blockades.</li>
+                </ul>
+            </div>
+
+            <div style="flex: 1; min-width: 280px;">
+                <strong style="color: #2980b9; display: block; margin-bottom: 5px;">🎯 Mode A: Discrete Contrast Analysis (Target vs Background)</strong>
+                <ul style="margin: 0; padding-left: 20px;">
+                    <li><b>Homer-like Model:</b> Performs hypergeometric enrichment modeling to contrast target occurrences against baseline parameters.</li>
+                    <li><b>Mann-Whitney U-Test:</b> Computes non-parametric continuous frequency score distribution shifts across background pools.</li>
+                    <li><b>Auto-Background Shuffling:</b> If the control input field is left empty, the engine creates a matched background pool by shuffling your target arrays automatically.</li>
+                </ul>
+            </div>
+
+            <div style="flex: 1; min-width: 280px;">
+                <strong style="color: #e67e22; display: block; margin-bottom: 5px;">📊 Mode B: Continuous Quant相関 Engine (DRIMust & Pearson)</strong>
+                <ul style="margin: 0; padding-left: 20px;">
+                    <li><b>DRIMust Model:</b> Sorts the full dataset array dynamically by input expression fold-change columns and scans to find the optimal threshold partition score where motifs enrich.</li>
+                    <li><b>Pearson Product-Moment:</b> Models continuous dosage-response signals. Tracks frequency numbers directly against absolute continuous expression trends.</li>
+                    <li><b>Clipping Cap:</b> Sets an upper limit for high frequency occurrences to eliminate single out-of-bounds transcript row bias from skewing calculations.</li>
+                </ul>
+            </div>
+
+            <div style="flex: 1; min-width: 280px;">
+                <strong style="color: #9b59b6; display: block; margin-bottom: 5px;">🎻 Sub-Member Aggregation & High-Resolution Export</strong>
+                <ul style="margin: 0; padding-left: 20px;">
+                    <li><b>Core Sequence-Based Aggregation:</b> Groups overlapping motifs (e.g., 6-mers) under their matching core sequences (e.g., 4-mers) to reflect real in vivo flexible binding patterns.</li>
+                    <li><b>Sub-Member Summation:</b> Clicking a clustered motif core dynamically sweeps your dataset and adds up the copy counts of all underlying variants for every gene row.</li>
+                    <li><b>300dpi Graphics Pipeline:</b> Renders vector shapes onto a high-density canvas map, exporting sharp, presentation-ready PNG file copies instantly.</li>
+                </ul>
+            </div>
+
+        </div>
+    </div>
+</div> <!-- Close main wrap container -->
+
+<script>
+const FALLBACK_MOTIF_DB = [
+    { db: "PLACE", id: "S000035", name: "SEF4 motif", consensus: "RTTTTT" },
+    { db: "PLACE", id: "S000455", name: "MYBCORE", consensus: "CNGTTG" },
+    { db: "PLACE", id: "S000124", name: "GT1CONSENSUS", consensus: "GRWAAW" }
+];
+// Object to retain batch analysis results { colIdx: [results...], ... }
+let batchCalculatedResults = {};
+let currentActiveColumn = null;
+let currentModeLabelGlobal = "";
+let currentPrefixGlobal = "";
+
+window.addEventListener('DOMContentLoaded', () => {
+    const info = document.getElementById('dbLoadStatus'); if (!info) return;
+    if (typeof EXTENDED_MOTIF_DB !== 'undefined' && Array.isArray(EXTENDED_MOTIF_DB)) {
+        info.style.color = "#27ae60"; info.innerHTML = `📦 External DB (motif_db.js) loaded: <span style="background:#e8f8f5; padding:2px 6px; border-radius:4px;">${EXTENDED_MOTIF_DB.length} motifs</span> available`;
+    } else { info.style.color = "#d35400"; info.innerHTML = `ℹ️ External DB not detected -- Using a PLACE Core DB (${FALLBACK_MOTIF_DB.length} motifs)`; }
+});
+
+function loadFile(fileId, textId) { 
+    const input = document.getElementById(fileId); 
+    if (input && input.files && input.files.length > 0) { 
+        const reader = new FileReader(); 
+        reader.onload = e => { document.getElementById(textId).value = e.target.result; };
+        reader.readAsText(input.files[0]); 
+    } 
+}
+
+function parseFasta(text) { if (!text.trim()) return []; const lines = text.split('\n'); const seqs = []; let cur = ""; for (let l of lines) { let line = l.trim(); if (line.startsWith('>')) { if (cur) seqs.push(cur.toUpperCase()); cur = ""; } else cur += line; } if (cur) seqs.push(cur.toUpperCase()); return seqs.filter(s => s.length > 0); }
+
+function parseFastaWithIds(text) {
+    if (!text.trim()) return {};
+    const lines = text.split('\n'); const obj = {}; let curId = "", curSeq = "";
+    for (let l of lines) {
+        let line = l.trim();
+        if (line.startsWith('>')) {
+            if (curId && curSeq) obj[curId] = curSeq;
+            let parts = line.substring(1).trim().split(/[|\s]+/);
+            // 配列の最初の要素（ID文字列）に対してtrimをかける
+            curId = parts.length > 0 ? parts[0].trim() : "";
+            curSeq = "";
+        } else {
+            curSeq += line.toUpperCase();
+        }
+    }
+    if (curId && curSeq) obj[curId] = curSeq;
+    return obj;
+}
+
+
+function sampleSequences(seqs, size) { if (seqs.length <= size) return seqs; const shuf = [...seqs]; for (let i = shuf.length - 1; i >= shuf.length - size; i--) { const j = Math.floor(Math.random() * (i + 1)); [shuf[i], shuf[j]] = [shuf[j], shuf[i]]; } return shuf.slice(shuf.length - size); }
+function bitToSeq(bit, k) { const bases = ['A', 'C', 'G', 'T']; let seq = ""; for (let i = k - 1; i >= 0; i--) seq += bases[(bit >> (2 * i)) & 3]; return seq; }
+function getReverseComplementBit(bitX, k) { let rc = 0; for (let i = 0; i < k; i++) { rc = (rc << 2) | (((bitX >> (2 * i)) & 3) ^ 3); } return rc; }
+
+function parseKSizeInput(str) { 
+    str = str.trim(); 
+    if (str.includes('-')) { 
+        const p = str.split('-').map(Number); 
+        if (p.length === 2 && !isNaN(p[0]) && !isNaN(p[1])) { 
+            let arr = []; 
+            let start = Math.min(p[0], p[1]);
+            let end = Math.max(p[0], p[1]);
+            for(let i = start; i <= end; i++) arr.push(i); 
+            return arr; 
+        } 
+    } 
+    if (str.includes(',')) return str.split(',').map(x => parseInt(x.trim(), 10)).filter(x => !isNaN(x)); 
+    const s = parseInt(str, 10); 
+    return !isNaN(s) ? [s] : []; 
+}
+
+function zScoreToP(z) { if (z <= 0) return 1.0; const t = 1 / (1 + 0.2316419 * z), d = 0.3989423 * Math.exp(-z * z / 2); return d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274)))); }
+
+function tStatToP(t, df) {
+    if (df <= 0) return 1.0;
+    let z = (Math.abs(t) - (1 - 1 / (4 * df))) / Math.sqrt(1 + t * t / (2 * df));
+    return zScoreToP(z) * 2;
+}
+
+function matchConsensus(kmer, consensus) {
+    // ⭐️ 安全対策: consensus が存在しない、または文字列でない場合は不一致(false)とする
+    if (!consensus || typeof consensus !== 'string') return false;
+    if (!kmer || typeof kmer !== 'string') return false;
+
+    kmer = kmer.toUpperCase(); consensus = consensus.toUpperCase();
+    const iupac = {'A':'A','C':'C','G':'G','T':'T','U':'T','R':'[AG]','Y':'[CT]','S':'[GC]','W':'[AT]','K':'[GT]','M':'[AC]','B':'[CGT]','D':'[AGT]','H':'[ACT]','V':'[ACG]','N':'[ACGT]'};
+    let regStr = ""; for(let c of consensus) { regStr += iupac[c] || c; } const dbRegex = new RegExp(regStr); if (dbRegex.test(kmer)) return true;
+    if (consensus.length >= kmer.length) {
+        for (let i = 0; i <= consensus.length - kmer.length; i++) {
+            let sub = consensus.substr(i, kmer.length); let subReg = ""; for (let c of sub) { subReg += iupac[c] || c; }
+            if (new RegExp("^" + subReg + "$").test(kmer)) return true;
+        }
+    } return false;
+}
+
+function buildDynamicWebLogo(parentKmer, childrenArray) {
+    parentKmer = parentKmer.toUpperCase(); 
+    let allSeqs = [];
+    if (childrenArray && childrenArray.length > 0) { 
+        allSeqs = childrenArray.map(c => {
+            // カッコ '(' があればそれより前（k-mer配列部分）だけを切り出して大文字化
+            let parts = c.split('(');
+            return parts[0].toUpperCase();
+        }); 
+    } else { 
+        allSeqs = [parentKmer]; 
+    }
+    let alignedSeqs = []; 
+    let maxLeftShift = 0;
+    allSeqs.forEach(seq => {
+        let idx = seq.indexOf(parentKmer); if (idx === -1) idx = 0;
+        if (idx > maxLeftShift) maxLeftShift = idx; alignedSeqs.push({ seq: seq, leftShift: idx });
+    });
+    let adjustedSeqs = alignedSeqs.map(item => " ".repeat(maxLeftShift - item.leftShift) + item.seq);
+    let maxLen = Math.max(...adjustedSeqs.map(s => s.length));
+    if (maxLen === 0) return `<div class="weblogo-box" style="display:none;"></div>`;
+    let profile = Array.from({ length: maxLen }, () => ({ A: 0, C: 0, G: 0, T: 0 }));
+    adjustedSeqs.forEach(seq => { for (let i = 0; i < seq.length; i++) { if (profile[i] && ['A','C','G','T'].includes(seq[i])) profile[i][seq[i]]++; } });
+
+    let html = `<div class="weblogo-box">`;
+    for (let i = 0; i < maxLen; i++) {
+        let pos = profile[i]; let tot = pos.A + pos.C + pos.G + pos.T; if (tot === 0) continue;
+        let scores = [{ b: 'A', s: pos.A / tot }, { b: 'C', s: pos.C / tot }, { b: 'G', s: pos.G / tot }, { b: 'T', s: pos.T / tot }].sort((a, b) => a.s - b.s);
+        html += `<div class="logo-col">`;
+        scores.forEach(x => {
+            if (x.s > 0.02) {
+                let hPercent = Math.round(x.s * 100);
+                let c = x.b === 'A' ? '#2ecc71' : (x.b === 'C' ? '#3498db' : (x.b === 'G' ? '#f1c40f' : '#e74c3c'));
+                html += `<div class="logo-char-wrapper" style="height:${hPercent}%;">
+                    <span class="logo-char" style="color:${c}; transform:scale(1, ${x.s});">${x.b}</span>
+                </div>`;
+            }
+        });
+        html += `</div>`;
+    }
+    return html + `</div>`;
+}
+
+function applyClustering(filteredResults, coreLen) {
+    if (!filteredResults || filteredResults.length === 0) return [];
+    
+    const bases = ['A', 'C', 'G', 'T']; 
+    let cores = [];
+    
+    function gen(s) { 
+        if (s.length === coreLen) { 
+            cores.push(s.toUpperCase()); 
+            return; 
+        } 
+        for (let b of bases) gen(s + b); 
+    } 
+    gen("");
+    
+    let targets = filteredResults.filter(r => r.kLen >= coreLen); 
+    if (targets.length === 0) {
+        return filteredResults.map(r => ({ ...r, children: [] }));
+    }
+    
+    let coreGroups = [];
+    for (let i = 0; i < cores.length; i++) {
+        const c = cores[i];
+        
+        let m = targets.filter(r => {
+            const kmerStr = (r.kmer || "").toUpperCase();
+            return kmerStr.includes(c);
+        }).sort((a, b) => a.pValue - b.pValue); 
+        
+        if (!m.length) continue;
+        
+        // ⭐️ バグ修正: 配列の先頭 [0] を正確に指定してリーダーとなる最小のpValueオブジェクトを掴む
+        let leader = m[0]; 
+        
+        coreGroups.push({ 
+            kmer: c, 
+            kLen: coreLen, 
+            pValue: leader.pValue, 
+            fdr: leader.fdr, 
+            effect: leader.effect, 
+            logInfo: `Sharing core '${c}' (Aggregated ${m.length} sub-motifs)`,
+            children: m.map(x => `${x.kmer}(${x.kLen}m:${x.effect})`) 
+        });
+    }
+    
+    const shortItems = filteredResults.filter(r => r.kLen < coreLen).map(r => ({ ...r, children: [] }));
+    return [...coreGroups, ...shortItems].sort((a, b) => a.pValue - b.pValue);
+}
+
+function renderResultTable(clusteredResults, modeName, prefix) {
+    const tbody = document.querySelector('#resultTable tbody'); 
+    tbody.innerHTML = "";
+    
+    let useJaspar = document.getElementById('dbJaspar' + prefix).checked;
+    let usePlace = document.getElementById('dbPlace' + prefix).checked;
+    let useDapSeq = document.getElementById('dbDapSeq' + prefix).checked;
+    
+    let activeDB = (typeof EXTENDED_MOTIF_DB !== 'undefined') ? EXTENDED_MOTIF_DB : FALLBACK_MOTIF_DB;
+    activeDB = activeDB.filter(m => (m.db==="JASPAR"&&useJaspar) || (m.db==="PLACE"&&usePlace) || ((m.db==="DAP-Seq"||m.db.startsWith("CIS"))&&useDapSeq));
+
+    clusteredResults.sort((a,b)=>a.pValue-b.pValue);
+    clusteredResults.forEach(r => { r.matchedMotifs = activeDB.filter(m => matchConsensus(r.kmer, m.consensus)); });
+
+    // ⭐️ 修正: Mode B（全遺伝子連動解析）の結果を描画する時だけ、上部のバイオリン制御ボタン群を自動出現させる
+    const toggleVBtn = document.getElementById('toggleViolinBtn');
+    const downloadVBtn = document.getElementById('downloadViolinBtn');
+    
+    if (prefix === 'B' && clusteredResults.length > 0) {
+        if (toggleVBtn) toggleVBtn.style.display = "inline-block";
+        if (downloadVBtn) downloadVBtn.style.display = "inline-block";
+    } else {
+        // Mode A（2群比較）の時はバイオリン分布の概念がないため、ボタンを隠す
+        if (toggleVBtn) toggleVBtn.style.display = "none";
+        if (downloadVBtn) downloadVBtn.style.display = "none";
+        const container = document.getElementById('violinPlotContainer');
+        if (container) container.style.display = "none";
+    }
+
+    if (!clusteredResults.length) {
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:#e74c3c;">No significantly enriched motif was identified.</td></tr>`;
+        return;
+    }
+    
+    clusteredResults.slice(0, 100).forEach(r => {
+        let mBadges = r.matchedMotifs.slice(0, 12).map(m => {
+            let bc = "badge-place"; if(m.db==="JASPAR") bc="badge-jaspar"; if(m.db==="DAP-Seq"||m.db.startsWith("CIS")) bc="badge-dapseq";
+            return `<span class="motif-badge ${bc}" title="ID: ${m.id} / Seq: ${m.consensus}">[${m.db}] ${m.name}</span>`;
+        }).join('');
+        if (r.matchedMotifs.length > 12) mBadges += `<span class="motif-badge" style="background:#f5f6fa; color:#7f8c8d;"> and +${r.matchedMotifs.length-12}motifs</span>`;
+        if (!mBadges) mBadges = `<span style="color:#95a5a6;">-</span>`;
+        
+        // ─── Inside renderResultTable loop block: Updated Action Bindings ───
+        let webLogo = buildDynamicWebLogo(r.kmer, r.children);
+        let childTxt = (r.children && r.children.length > 0) ? `<span class="child-kmers">↳ Component: ${r.children.join(', ')}</span>` : "";
+        
+        let isNegative = r.effect.startsWith('-');
+        let effStyle = isNegative ? 'color:#2980b9; font-weight:bold;' : 'color:#c0392b; font-weight:bold;';
+
+        // ⭐️ FIX: Determine if this row is an aggregated parent cluster row
+        const isClusterRow = r.children && r.children.length > 0;
+
+        tbody.insertAdjacentHTML('beforeend', `<tr>
+            <td>
+                <!-- ⭐️ FIX: Passes isClusterRow (true/false) into the plotting matrix -->
+                <span class="kmer-text" style="cursor: pointer; text-decoration: underline; color: #9b59b6;" 
+                      onclick="generateViolinPlot('${r.kmer}', ${r.kLen}, ${isClusterRow})" title="Generate violin plot">
+                    ${r.kmer}
+                </span> 
+                <small style="color:#7f8c8d;">(${r.kLen}m)</small><br>${webLogo}${childTxt}
+            </td>
+            <td><small>${modeName}</small></td><td><span style="${effStyle}">${r.effect}</span></td><td>${r.logInfo}</td><td>${r.pValue.toExponential(3)}</td>
+            <td><span style="color:${r.fdr<0.05?'#27ae60':'#2c3e50'}; font-weight:bold;">${r.fdr.toExponential(3)}</span></td><td>${mBadges}</td>
+        </tr>`);
+    });
+}
+
+function switchResultColumn(colIdx) {
+    if (!batchCalculatedResults[colIdx]) return;
+    currentActiveColumn = colIdx;
+    renderResultTable(batchCalculatedResults[colIdx], currentModeLabelGlobal, currentPrefixGlobal);
+}
+
+// ======================== Mode A: Two Group Comparison ========================
+function runAnalysis(mode) {
+    const kSizes = parseKSizeInput(document.getElementById('kInputA').value); if (!kSizes.length) { alert("k-mer length invalid"); return; }
+    const maxBg = parseInt(document.getElementById('sampleSize').value) || 1000; const ignoreRC = document.getElementById('ignoreRCA').checked;
+    
+    document.getElementById('colSelectDropdown').style.display = "none";
+    const tbodyInitial = document.querySelector('#resultTable tbody');
+    tbodyInitial.innerHTML = `<tr><td colspan="7" style="text-align:center; color:#d63031; font-weight:bold;">⚡ Analyzing enrichment...</td></tr>`;
+
+    setTimeout(() => {
+        const raw1 = parseFasta(document.getElementById('fasta1').value); let raw2 = parseFasta(document.getElementById('fasta2').value);
+        if (!raw1.length) { alert("Target FASTA Not Found"); tbodyInitial.innerHTML = `<tr><td colspan="7" style="text-align:center; color:#95a5a6;">Error</td></tr>`; return; }
+        if (!raw2.length) { raw2 = raw1.map(s => { let a = s.split(''); for(let i=a.length-1; i>0; i--) { let j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a.join(''); }); }
+        const seqs1 = raw1, seqs2 = sampleSequences(raw2, maxBg), n1 = seqs1.length, n2 = seqs2.length, bToInt = { 'A': 0, 'C': 1, 'G': 2, 'T': 3 };
+        let globalResults = [];
+
+        for (let k of kSizes) {
+            const mask = (1 << (2 * k)) - 1; const c1 = {}, c2 = {};
+            function scan(seqs, store) {
+                for (let seq of seqs) {
+                    const local = {}; let bitX = 0, win = 0;
+                    for (let i = 0; i < seq.length; i++) {
+                        const code = bToInt[seq[i]]; if (code !== undefined) { bitX = ((bitX << 2) | code) & mask; win++; if (win >= k) { let tBit = bitX; if (!ignoreRC) { let rc = getReverseComplementBit(bitX, k); if (rc < tBit) tBit = rc; } local[tBit] = (local[tBit] || 0) + 1; } } else win = 0;
+                    }
+                    for (let b in local) { if (!store[b]) store[b] = { freq: {}, presence: 0 }; store[b].freq[local[b]] = (store[b].freq[local[b]] || 0) + 1; store[b].presence++; }
+                }
+            }
+            scan(seqs1, c1); scan(seqs2, c2);
+
+            for (let bX in c1) {
+                const obs = c1[bX].presence; let p = 1.0, info = "", eff = 0;
+                let rc = getReverseComplementBit(Number(bX), k); let p_rand = (1 / Math.pow(4, k)) * ((!ignoreRC && rc !== Number(bX)) ? 2 : 1);
+                if (mode === 'homer') {
+                    let rate = n2 > 0 ? ((c2[bX] ? c2[bX].presence : 0) / n2) : p_rand; if (rate === 0) rate = 1 / (n2 + 1);
+                    p = poissonLogSurvival(obs, n1 * rate); eff = (obs / n1) / rate; info = `Target: ${(obs/n1*100).toFixed(1)}% vs BG: ${(rate*100).toFixed(1)}%`;
+                } else {
+                    const f1 = { ...c1[bX].freq }; f1["0"] = n1 - obs; let f2 = c2[bX] ? { ...c2[bX].freq } : {}; f2["0"] = n2 - (c2[bX] ? c2[bX].presence : 0);
+                    const keys = Array.from(new Set([...Object.keys(f1), ...Object.keys(f2)])).map(Number).sort((a,b)=>a-b);
+                    let rStart = 1, rSum1 = 0, ties = 0;
+                    for (let v of keys) { const nv1 = f1[v]||0, nv2 = f2[v]||0, tc = nv1+nv2; if (tc > 0) { rSum1 += nv1 * (rStart + (tc - 1) / 2); if (tc > 1) ties += (Math.pow(tc, 3) - tc); rStart += tc; } }
+                    const U1 = rSum1 - (n1 * (n1 + 1)) / 2, totN = n1 + n2; let varU = (n1 * n2 / (totN * (totN - 1))) * ((Math.pow(totN, 3) - totN - ties) / 12); if (varU <= 0) varU = (n1 * n2 * (totN + 1)) / 12;
+                    p = zScoreToP((U1 - (n1 * n2) / 2 - 0.5) / Math.sqrt(varU));
+                    let a1 = 0, a2 = 0; for (let key in f1) a1 += Number(key)*f1[key]; for (let key in f2) a2 += Number(key)*f2[key];
+                    a1 /= n1; a2 /= n2; eff = a2 === 0 ? a1 : a1 / a2; info = `Average Target: ${a1.toFixed(3)} vs BG: ${a2.toFixed(3)}`;
+                }
+                if (eff > 1) globalResults.push({ kmer: bitToSeq(Number(bX), k), kLen: k, pValue: p, logInfo: info, effectVal: eff, effect: eff.toFixed(2) + "x", children: [] });
+            }
+        }
+        globalResults.sort((a, b) => a.pValue - b.pValue);
+        for (let i = 0; i < globalResults.length; i++) { globalResults[i].fdr = globalResults[i].pValue * (globalResults.length / (i + 1)); if (globalResults[i].fdr > 1) globalResults[i].fdr = 1; }
+        let filtered = globalResults.filter(r => r.fdr < 0.05);
+        let clusteredResults = [];
+        const enableCluster = document.getElementById('enableClusterA').checked, coreLen = parseInt(document.getElementById('clusterCoreLenA').value) || 4;
+        
+        if (mode === 'extend') {
+            let seeds = globalResults.filter(r => r.kLen === 4).sort((a,b)=> (Math.abs(a.effectVal-b.effectVal)>0.5)?(b.effectVal-a.effectVal):(a.pValue-b.pValue));
+            let procSeeds = new Set(), maxK = Math.max(...kSizes);
+            for (let sObj of seeds) {
+                if (procSeeds.has(sObj.kmer)) continue;
+                let curBest = sObj, curK = 4, path = [sObj.kmer];
+                while (curK < maxK) {
+                    let cand = globalResults.filter(r => r.kLen === (curK+1) && r.kmer.includes(curBest.kmer)).sort((a,b)=>a.pValue-b.pValue);
+                    // ⭐️ 候補がない、または cand[0] が undefined の場合はループを抜ける
+                    if (!cand.length || !cand[0] || cand[0].pValue > 0.05) break;
+                    curBest = cand[0]; path.push(curBest.kmer); procSeeds.add(curBest.kmer); curK++;
+                }
+                // ⭐️ curBest が正常に存在する場合のみ結果に追加する安全ガード
+                if (curBest && curBest.kmer) {
+                    let item = { ...curBest, children: [] }; if (path.length > 1) item.children = path.slice(0, -1);
+                    if (!clusteredResults.some(r => r.kmer === item.kmer)) clusteredResults.push(item);
+                }
+                procSeeds.add(sObj.kmer);
+            }
+        } else if (enableCluster) { clusteredResults = applyClustering(filtered, coreLen); }
+        else { clusteredResults = filtered.map(r => ({ ...r, children: [] })); }
+
+        document.getElementById('tableHeader').innerHTML = `<th>k-mer (Sequence/Core)</th><th>Mode</th><th>Enrichment (×)</th><th>Detail</th><th>p-value</th><th>FDR (BH method)</th><th>Similar Known Motif</th>`;
+        
+        batchCalculatedResults = { "Group-Based": clusteredResults };
+        currentActiveColumn = "Group-Based";
+        currentModeLabelGlobal = mode==='homer'?"Homer-like":"U Test";
+        currentPrefixGlobal = 'A';
+        
+        renderResultTable(clusteredResults, currentModeLabelGlobal, 'A');
+        document.getElementById('downloadCsvBtn').style.display = "inline-block";
+    }, 40);
+}
+
+// ======================== Mode B: Expression-Based Engine ========================
+function runRankedAnalysis(mode) {
+    const kSizes = parseKSizeInput(document.getElementById('kInputB').value); if (!kSizes.length) { alert("k-mer長指定が不正です。"); return; }
+    if (kSizes.some(k => k > 6)) { alert("🚨 Use 6 or a smaller value"); return; }
+
+    const idCol = parseInt(document.getElementById('idColIdx').value) - 1;
+
+    // 既存の parseKSizeInput 関数を流用して、ハイフン範囲（4-6など）を列番号の配列にパース
+    const expCols = parseKSizeInput(document.getElementById('expColIdxs').value).map(x => x - 1).filter(x => x >= 0);
+
+    if (!expCols.length) { alert("Provide a valid column index for expression levels"); return; }
+
+    const ignoreRC = document.getElementById('ignoreRCB').checked;
+    const clipLimit = parseInt(document.getElementById('clipCount').value) || 3;
+    
+    const tbodyInitial = document.querySelector('#resultTable tbody');
+    tbodyInitial.innerHTML = `<tr><td colspan="7" style="text-align:center; color:#e67e22; font-weight:bold;">⚡ Analyzing enrichment...</td></tr>`;
+
+    setTimeout(() => {
+        const fastaMap = parseFastaWithIds(document.getElementById('fastaAll').value);
+        const expLines = document.getElementById('textExp').value.split('\n');
+        
+        // 1. 最初の一回だけ発現テキストデータをパースしてメモリに構造化
+        let parsedLines = [];
+        let validGeneIdsSet = new Set();
+        
+        for (let line of expLines) {
+            let tokens = line.trim().split(/[\t,]+/);
+            if (tokens.length > idCol && !line.startsWith("Gene") && !line.startsWith("gene")) {
+                if (tokens[idCol]) {
+                    let parts = tokens[idCol].trim().replace(/^>/, "").split(/[|\s]+/);
+                    let gId = parts.length > 0 ? parts[0].trim() : "";
+                    if (gId && fastaMap[gId]) {
+                        validGeneIdsSet.add(gId);
+                        parsedLines.push({ id: gId, tokens: tokens });
+                    }
+                }
+            }
+        }
+        
+        let validGeneIds = Array.from(validGeneIdsSet);
+        if (validGeneIds.length < 5) { alert("Valid data are for less than 5 genes"); tbodyInitial.innerHTML = `<tr><td colspan="7" style="text-align:center; color:#95a5a6;">Sequence-Expression Matching Error</td></tr>`; return; }
+
+        const totalN = validGeneIds.length;
+        
+        // ✨ 遺伝子IDから配列インデックスを高速で引くためのルックアップ辞書を作成(O(1))
+        let geneIdxLookup = {};
+        validGeneIds.forEach((id, idx) => { geneIdxLookup[id] = idx; });
+
+        // 2. 配列のk-merカウント (1回きりのハッシュマップ生成)
+        const bToInt = { 'A': 0, 'C': 1, 'G': 2, 'T': 3 };
+        let allKmerCounts = {};
+        
+        for (let k of kSizes) {
+            const mask = (1 << (2 * k)) - 1;
+            allKmerCounts[k] = {};
+            
+            // ─── 【Mode B本体】k-merカウント走査ブロック ───
+            validGeneIds.forEach((gId, gIdx) => {
+                let win = 0, bitX = 0;
+                let seq = fastaMap[gId];
+                for (let i = 0; i < seq.length; i++) {
+                    const code = bToInt[seq[i]];
+                    if (code !== undefined) {
+                        // ⭐️ 修正: 走査中はマスクを掛けず、純粋にビットを左へシフト
+                        // これにより過去の塩基データが破壊されず、RC（逆相補鎖）を計算
+                        bitX = (bitX << 2) | code; 
+                        win++;
+                        
+                        if (win >= k) {
+                            // ウィンドウがk長に達したこの時に初めて、k-merの長さ分だけをマスクで切り出す
+                            let tBit = bitX & mask;
+                            
+                            if (!ignoreRC) {
+                                let rc = 0;
+                                for (let j = 0; j < k; j++) {
+                                    rc = (rc << 2) | (((tBit >> (2 * j)) & 3) ^ 3);
+                                }
+                                if (rc < tBit) tBit = rc;
+                            }
+                            
+                            // 文字列型としてハッシュマップへ登録
+                            const tKeyStr = String(tBit);
+                            if (!allKmerCounts[k][tKeyStr]) {
+                                allKmerCounts[k][tKeyStr] = new Uint16Array(totalN);
+                            }
+                            allKmerCounts[k][tKeyStr][gIdx]++;
+                        }
+                    } else win = 0;
+                }
+            });
+        }
+
+        batchCalculatedResults = {};
+        
+        // 3. 各列の統計ループ (indexOfを撤廃したためバッチを何列回しても高速で終わる)
+        for (let targetColIdx of expCols) {
+            let currentGeneList = [];
+            
+            for (let item of parsedLines) {
+                if (item.tokens.length > targetColIdx) {
+                    let rawValStr = item.tokens[targetColIdx] ? item.tokens[targetColIdx].trim().replace(/['"\s]+/g, "") : "NaN";
+                    let val = parseFloat(rawValStr);
+                    
+                    if (!isNaN(val)) {
+                        // ✨連連辞書からインデックスを取得 (indexOfのループを排除)
+                        let originalIdx = geneIdxLookup[item.id];
+                        currentGeneList.push({ id: item.id, val: val, origIdx: originalIdx });
+                    }
+                }
+            }
+            
+            if (currentGeneList.length < 5) continue;
+            
+            currentGeneList.sort((a, b) => b.val - a.val);
+            const currentN = currentGeneList.length;
+            let colResults = [];
+
+            for (let k of kSizes) {
+                let kmerCounts = allKmerCounts[k];
+                for (let bX in kmerCounts) {
+                    const originalCounts = kmerCounts[bX];
+                    let pValue = 1.0; let effectStr = ""; let details = "";
+
+                    if (mode === 'drim') {
+                        let presenceFlags = new Uint8Array(currentN);
+                        let totalM = 0;
+                        for (let i = 0; i < currentN; i++) {
+                            if (originalCounts[currentGeneList[i].origIdx] > 0) { presenceFlags[i] = 1; totalM++; }
+                        }
+                        if (totalM < 2 || totalM === currentN) continue;
+
+                        let step = currentN > 1000 ? Math.floor(currentN / 200) : 1; if (step < 1) step = 1;
+
+                        let minP_top = 1.0; let bestCutoff_top = 0; let bestHits_top = 0; let currentHits_top = 0;
+                        for (let n = 1; n <= currentN; n++) {
+                            if (presenceFlags[n - 1] === 1) currentHits_top++;
+                            if (n % step === 0 || n === currentN) {
+                                if (currentHits_top === 0) continue;
+                                let expected = n * (totalM / currentN);
+                                let variance = n * (totalM / currentN) * ((currentN - totalM) / currentN) * ((currentN - n) / (currentN - 1 || 1));
+                                let p = 1.0;
+                                if (variance > 0 && currentHits_top > expected) {
+                                    let z = (currentHits_top - 0.5 - expected) / Math.sqrt(variance);
+                                    p = zScoreToP(z);
+                                }
+                                if (p < minP_top) { minP_top = p; bestCutoff_top = n; bestHits_top = currentHits_top; }
+                            }
+                        }
+
+                        let minP_bot = 1.0; let bestCutoff_bot = 0; let bestHits_bot = 0; let currentHits_bot = 0;
+                        for (let n = 1; n <= currentN; n++) {
+                            if (presenceFlags[currentN - n] === 1) currentHits_bot++;
+                            if (n % step === 0 || n === currentN) {
+                                if (currentHits_bot === 0) continue;
+                                let expected = n * (totalM / currentN);
+                                let variance = n * (totalM / currentN) * ((currentN - totalM) / currentN) * ((currentN - n) / (currentN - 1 || 1));
+                                let p = 1.0;
+                                if (variance > 0 && currentHits_bot > expected) {
+                                    let z = (currentHits_bot - 0.5 - expected) / Math.sqrt(variance);
+                                    p = zScoreToP(z);
+                                }
+                                if (p < minP_bot) { minP_bot = p; bestCutoff_bot = n; bestHits_bot = currentHits_bot; }
+                            }
+                        }
+
+                        let isTop = minP_top <= minP_bot;
+                        pValue = isTop ? minP_top : minP_bot;
+                        let bestCutoff = isTop ? bestCutoff_top : bestCutoff_bot;
+                        let bestHits = isTop ? bestHits_top : bestHits_bot;
+
+                        let numTests = Math.floor(currentN / step) * 2;
+                        pValue = pValue * numTests; if (pValue > 1) pValue = 1;
+
+                        let ratio = (bestHits / (bestCutoff || 1)) / (totalM / currentN);
+                        effectStr = (isTop ? "" : "-") + ratio.toFixed(2) + "x";
+                        let dirTxt = isTop ? `Top (positive correlation)` : `Bottom (negative correlation)`;
+                        details = `Optimal cutoff: Of ${dirTxt} ${bestCutoff}, ${bestHits} were kept (Expected: ${(bestCutoff * totalM / currentN).toFixed(1)})`;
+
+                        if (ratio > 1.0 && pValue < 0.05) {
+                            colResults.push({ kmer: bitToSeq(Number(bX), k), kLen: k, pValue: pValue, logInfo: details, effectVal: ratio, effect: effectStr, children: [] });
+                        }
+
+                    } else if (mode === 'pearson') {
+                        let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0, sumY2 = 0;
+                        for (let i = 0; i < currentN; i++) {
+                            let origCount = originalCounts[currentGeneList[i].origIdx];
+                            let x = origCount > clipLimit ? clipLimit : origCount; 
+                            let y = currentGeneList[i].val;
+                            sumX += x; sumY += y; sumXY += x * y;
+                            sumX2 += x * x; sumY2 += y * y;
+                        }
+                        let num = (currentN * sumXY) - (sumX * sumY);
+                        let den = Math.sqrt(((currentN * sumX2) - (sumX * sumX)) * ((currentN * sumY2) - (sumY * sumY)));
+                        let r = den === 0 ? 0 : num / den; if (isNaN(r)) r = 0;
+
+                        let df = currentN - 2;
+                        let tVal = Math.abs(r) * Math.sqrt(df / (1 - r * r + 1e-9));
+                        pValue = tStatToP(tVal, df);
+                        effectStr = (r >= 0 ? "+" : "") + r.toFixed(3);
+                        details = `Quantity-based correlation (Max. ${clipLimit} clipping)`;
+
+                        if (Math.abs(r) > 0.01 && pValue < 0.05) {
+                            colResults.push({ kmer: bitToSeq(Number(bX), k), kLen: k, pValue: pValue, logInfo: details, effectVal: Math.abs(r), effect: effectStr, children: [] });
+                        }
+                    }
+                }
+            }
+
+            colResults.sort((a, b) => a.pValue - b.pValue);
+            for (let i = 0; i < colResults.length; i++) {
+                colResults[i].fdr = colResults[i].pValue * (colResults.length / (i + 1)); if (colResults[i].fdr > 1) colResults[i].fdr = 1;
+            }
+
+            let filtered = colResults.filter(r => r.pValue < 0.05);
+            let clusteredResults = [];
+            const enableCluster = document.getElementById('enableClusterB').checked, coreLen = parseInt(document.getElementById('clusterCoreLenB').value) || 4;
+            if (enableCluster) { clusteredResults = applyClustering(filtered, coreLen); } 
+            else { clusteredResults = filtered.map(r => ({ ...r, children: [] })); }
+
+            // ─── Inside the for (let targetColIdx of expCols) loop body ───
+            batchCalculatedResults[(targetColIdx + 1)] = clusteredResults;
+            
+            // ⭐️ FIX: Initialize the storage dictionary object if it doesn't exist yet
+            if (!window.currentGlobalGeneListMapForPlot) {
+                window.currentGlobalGeneListMapForPlot = {};
+            }
+            // Store each independent column's expression list safely keyed by its Column Number
+            window.currentGlobalGeneListMapForPlot[(targetColIdx + 1)] = [...currentGeneList];
+            
+            // Still retain the counts map globally since it is shared across all columns
+            window.currentGlobalKmerCountsForPlot = allKmerCounts;
+        } // <--- End of the targetColIdx loop
+
+        const dropdown = document.getElementById('colSelectDropdown');
+        dropdown.innerHTML = "";
+        let parsedActiveCols = Object.keys(batchCalculatedResults);
+        
+        if (parsedActiveCols.length === 0) {
+            tbodyInitial.innerHTML = `<tr><td colspan="7" style="text-align:center; color:#h0392b;">No significantly enriched motif was identified</td></tr>`;
+            document.getElementById('downloadCsvBtn').style.display = "none";
+            dropdown.style.display = "none";
+            return;
+        }
+
+        parsedActiveCols.forEach(colNum => {
+            dropdown.insertAdjacentHTML('beforeend', `<option value="${colNum}">📊 列 ${colNum} の解析結果 (${batchCalculatedResults[colNum].length} 件)</option>`);
+        });
+
+        if (parsedActiveCols.length > 1) { dropdown.style.display = "inline-block"; } else { dropdown.style.display = "none"; }
+
+        const modeLabel = mode === 'drim' ? "DRIMust-like" : "Pearson";
+        const valHeader = mode === 'drim' ? "Conc. factor (Opt. position)" : "Coeff. (r)";
+        const detailHeader = mode === 'drim' ? "Dynamic threshold detail" : "Clipping condition";
+        
+        document.getElementById('tableHeader').innerHTML = `<th>k-mer (Sequence/Core)</th><th>Mode</th><th>${valHeader}</th><th>${detailHeader}</th><th>p-value</th><th>FDR (BH method)</th><th>Similar Known Motif</th>`;
+        
+        currentModeLabelGlobal = modeLabel;
+        currentPrefixGlobal = 'B';
+        
+        // 最初の列の結果をデフォルト表示
+        switchResultColumn(parsedActiveCols[0]);
+        document.getElementById('downloadCsvBtn').style.display = "inline-block";
+    }, 40);
+}
+
+function exportResultsToCsv() {
+    if (!Object.keys(batchCalculatedResults).length) return;
+    let csv = "Target_data_column_index,k-mer(Seq/Core),Length(mer),Score_index,Detail,p-value,FDR(BH)-corrected\n";
+    
+    for (let colKey in batchCalculatedResults) {
+        batchCalculatedResults[colKey].forEach(r => {
+            csv += `"${colKey}列目","${r.kmer}",${r.kLen},"${r.effect}","${r.logInfo}",${r.pValue.toExponential(4)},${r.fdr ? r.fdr.toExponential(4) : '-'}\n`;
+        });
+    }
+    
+    const link = document.createElement("a"); 
+    link.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" })); 
+    link.download = `kmer_expression_batch_results.csv`; 
+    link.click();
+}
+// ポアソン累積生存確率 (Log-Survival P-value) の近似計算関数
+function poissonLogSurvival(obs, lambda) {
+    if (lambda <= 0) return 1.0;
+    if (obs <= 0) return 1.0;
+    
+    // 正確な累積ポアソン確率は不完全ガンマ関数等が必要なため、
+    // 観測値(obs)が大きい場合は正規近似、小さい場合はループによる累積確率でp-valueを算出
+    if (obs > 20 || lambda > 20) {
+        // 正規近似 (連続修正あり)
+        let z = (obs - lambda - 0.5) / Math.sqrt(lambda);
+        return zScoreToP(z);
+    } else {
+        // 小さい値の場合は直接ポアソン確率の和を計算 (1 - P(X < obs))
+        let sum = 0;
+        let term = Math.exp(-lambda);
+        for (let i = 0; i < obs; i++) {
+            sum += term;
+            term = term * lambda / (i + 1);
+        }
+        let p = 1.0 - sum;
+        return p < 0 ? 0 : (p > 1 ? 1 : p);
+    }
+}
+
+function parseGffAttributes(attrString) {
+    const attrs = {};
+    if (!attrString) return attrs;
+    attrString.trim().split(';').forEach(item => {
+        if (!item || !item.includes('=')) return;
+        const [key, val] = item.split('=', 2);
+        attrs[key.trim()] = val.trim().split(',');
+    });
+    return attrs;
+}
+
+// 【ローカル・pako数珠つなぎ結合版】マルチメンバーGZIPの全染色体データを回収するデコーダー
+async function readTextOrGzFile(file) {
+    // プレーンテキスト（.fa / .gff）の場合は、通常のチャンクストリーム処理
+    if (!file.name.endsWith('.gz')) {
+        const stream = file.stream();
+        const textDecoderStream = new TextDecoderStream("utf-8");
+        const reader = stream.pipeThrough(textDecoderStream).getReader();
+        let resultText = "";
+        while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            resultText += value;
+        }
+        return resultText;
+    }
+
+    // ローカルに配置した pako ライブラリが正しくロードされているかチェック
+    if (typeof pako === 'undefined') {
+        throw new Error("Local library 'pako.min.js' is not available. Please confirm its presence and <script> tag contents.");
+    }
+
+    console.log(`[*] ${file.name} will be processed by pako.js-based recursive scanning...`);
+    
+    // 1. ファイル全体のバイナリ（Uint8Array）を取得
+    const fileBuffer = await file.arrayBuffer();
+    const zippedUint8 = new Uint8Array(fileBuffer);
+    
+    let resultText = "";
+    
+    // pakoの低レベルストリームインスタンスを起動
+    let inflate = new pako.Inflate({ to: 'string' });
+    let offset = 0;
+    let blockCount = 0;
+
+    // ファイルの末尾に達するまで、解凍ポインタをズラしながら何度も解凍をループする
+    while (offset < zippedUint8.length) {
+        blockCount++;
+        
+        // 残りのバイナリ領域（メンバー）をちぎって注入
+        const subArray = zippedUint8.subarray(offset);
+        
+        // pakoに生データを食べさせて解凍を実行
+        inflate.push(subArray, true); 
+        
+        if (inflate.err) {
+            // もしGZIPの形式エラー（破損や末尾パディング）が出た場合は、1歩ずつ前に進めて次の0x1F,0x8Bの目印を探す
+            let foundNext = false;
+            for (let i = offset + 1; i < zippedUint8.length - 2; i++) {
+                if (zippedUint8[i] === 0x1F && zippedUint8[i+1] === 0x8B) {
+                    offset = i;
+                    foundNext = true;
+                    break;
+                }
+            }
+            if (!foundNext) break; // 次のブロックがなければループ終了
+            
+            // 新しいpakoインスタンスで再構成
+            inflate = new pako.Inflate({ to: 'string' });
+            continue;
+        }
+
+        // このブロックで解凍されたテキストを回収（結合）
+        if (inflate.result) {
+            resultText += inflate.result;
+        }
+
+        // pakoが「このGZIPメンバーの解凍を終えた位置（消費バイト数）」を strm.next_in から取得
+        const consumedBytes = inflate.strm.next_in;
+        
+        if (consumedBytes <= 0) {
+            // 進捗がなければ無限ループ防止のためブレイク
+            break; 
+        }
+
+        // ポインタを「消費したバイト数」だけ前に進める
+        offset += consumedBytes;
+
+        // 次のメンバーを解凍するために、pakoエンジンの内部状態をリセット
+        inflate = new pako.Inflate({ to: 'string' });
+    }
+
+    console.log(`[+] Complete！ ${blockCount} chromosomes/blocks were concatenated by pako (Character count: ${resultText.length})`);
+    return resultText;
+}
+
+function getReverseComplementString(seq) {
+    let rc = "";
+    for(let i = seq.length - 1; i >= 0; i--) {
+        let b = seq[i];
+        rc += (b==='A'?'T':(b==='T'?'A':(b==='C'?'G':(b==='G'?'C':b))));
+    }
+    return rc;
+}
+
+function downloadExtractedFasta() {
+    if(!extractedFastaString) return;
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(new Blob([extractedFastaString], { type: "text/plain;" }));
+    link.download = `extracted_regions.fasta`; link.click();
+}
+
+function generateViolinPlot(kmer, kLen, isCluster) {
+    const activeColKey = currentActiveColumn || "1";
+    const activeGeneList = window.currentGlobalGeneListMapForPlot ? window.currentGlobalGeneListMapForPlot[activeColKey] : null;
+
+    if (!activeGeneList || !window.currentGlobalKmerCountsForPlot) {
+        alert("❌ Data for the selected motif are absent. Try Mode B.");
+        return;
+    }
+
+    // Determine the original full k-mer analysis length selected in the input fields
+    // (e.g., if analyzing 6-mers but clustered into 4-mers, analysisLength = 6)
+    const analysisLength = window.currentGlobalKmerCountsForPlot[6] ? 6 : (window.currentGlobalKmerCountsForPlot[5] ? 5 : kLen);
+
+    const container = document.getElementById('violinPlotContainer');
+    const wrapper = document.getElementById('violinPngWrapper');
+    if (!container || !wrapper) return;
+
+    window.currentActiveViolinKmer = kmer;
+    window.currentActiveViolinKLen = kLen;
+
+    document.getElementById('violinTitle').innerText = `🎻 Expression × Motif [ ${kmer} ] Number Distribution (Column ${activeColKey})`;
+    container.style.display = "block"; 
+    wrapper.innerHTML = "⏳ Generating a plot...";
+
+    let groups = { "0": [], "1": [], "2": [], "3+": [] };
+    const bToInt = { 'A': 0, 'C': 1, 'G': 2, 'T': 3 };
+    const ignoreRC = document.getElementById('ignoreRCB').checked;
+
+    // Helper helper to generate the accurate tracking hash used by the analysis engine
+    function getMapKey(sequenceStr) {
+        const mask = (1 << (2 * analysisLength)) - 1;
+        let bit = 0;
+        for (let i = 0; i < sequenceStr.length; i++) {
+            const code = bToInt[sequenceStr[i]];
+            if (code !== undefined) bit = ((bit << 2) | code) & mask;
+        }
+        if (!ignoreRC) {
+            let rc = 0;
+            for (let j = 0; j < analysisLength; j++) {
+                rc = (rc << 2) | (((bit >> (2 * j)) & 3) ^ 3);
+            }
+            rc = rc >>> 0;
+            if (rc < bit) bit = rc;
+        }
+        return String(bit);
+    }
+
+    // クリックされたキーに対応するすべての子メンバー配列（例: 4-merコアを含むすべての6-mer）のマップキーを事前に一括リスト化
+    let targetKeysList = [];
+
+    if (isCluster) {
+        console.log(`[*] Scanning each member in the [${kmer}] aggregated group...`);
+        // Scan through all calculated entries in the counts pool to extract sub-variants
+        const availableHashes = Object.keys(window.currentGlobalKmerCountsForPlot[analysisLength] || {});
+        
+        // Brute-force reconstruct sequence strings to find elements containing the core
+        availableHashes.forEach(hashStr => {
+            let bit = parseInt(hashStr, 10);
+            // Reconstruct text sequence from bit
+            let bases = ['A', 'C', 'G', 'T'];
+            let reconstructedSeq = "";
+            for (let i = analysisLength - 1; i >= 0; i--) {
+                reconstructedSeq += bases[(bit >> (2 * i)) & 3];
+            }
+            
+            // If the 6-mer contains the 4-mer core, add its hash string to our tracker list
+            if (reconstructedSeq.toUpperCase().includes(kmer.toUpperCase())) {
+                targetKeysList.push(hashStr);
+            }
+        });
+    } else {
+        // Standard non-clustered row lookup
+        targetKeysList.push(getMapKey(kmer));
+    }
+
+    // Remove duplicates to prevent double-counting if forward and reverse strands overlap
+    targetKeysList = Array.from(new Set(targetKeysList));
+
+    // ⭐️ Aggregate the counts of all underlying 6-mer sub-variants for every plant gene!
+    activeGeneList.forEach(gene => {
+        let cumulativeCount = 0;
+        
+        targetKeysList.forEach(hashKeyStr => {
+            if (window.currentGlobalKmerCountsForPlot[analysisLength] && window.currentGlobalKmerCountsForPlot[analysisLength][hashKeyStr]) {
+                // Add up the copy count of each sub-variant for this specific gene index
+                cumulativeCount += (window.currentGlobalKmerCountsForPlot[analysisLength][hashKeyStr][gene.origIdx] || 0);
+            }
+        });
+        
+        let grpKey = cumulativeCount >= 3 ? "3+" : "" + cumulativeCount;
+        if (groups[grpKey]) groups[grpKey].push(gene.val);
+    });
+
+    // ─── [Beyond this step, your beautiful high-resolution SVG canvas renders perfectly] ───
+    const width = 600, height = 400, margin = { top: 30, right: 30, bottom: 50, left: 60 };
+    const plotWidth = width - margin.left - margin.right;
+    const plotHeight = height - margin.top - margin.bottom;
+
+    let allVals = activeGeneList.map(g => g.val);
+    let defaultMinY = Math.min(...allVals);
+    let defaultMaxY = Math.max(...allVals);
+    
+    const customMinInput = document.getElementById('violinYMin').value;
+    const customMaxInput = document.getElementById('violinYMax').value;
+    
+    let minY = (customMinInput !== "") ? parseFloat(customMinInput) : defaultMinY;
+    let maxY = (customMaxInput !== "") ? parseFloat(customMaxInput) : defaultMaxY;
+    
+    if(minY === maxY) { minY -= 1; maxY += 1; }
+
+    const yScale = (val) => {
+        let v = val;
+        if (v < minY) v = minY;
+        if (v > maxY) v = maxY;
+        return plotHeight - ((v - minY) / (maxY - minY)) * plotHeight;
+    };
+    
+    const groupKeys = ["0", "1", "2", "3+"];
+    const groupX = (key) => (groupKeys.indexOf(key) + 0.5) * (plotWidth / groupKeys.length);
+
+    let svg = `<svg id="violinPng" width="${width}" height="${height}" style="background:white; border:1px solid #ccc; font-family: sans-serif;">`;
+    svg += `<g transform="translate(${margin.left}, ${margin.top})">`;
+    svg += `<line x1="0" y1="${plotHeight}" x2="${plotWidth}" y2="${plotHeight}" stroke="#333" stroke-width="1.5"/>`;
+    svg += `<line x1="0" y1="0" x2="0" y2="${plotHeight}" stroke="#333" stroke-width="1.5"/>`;
+    
+    for(let i=0; i<=4; i++) {
+        let val = minY + (maxY - minY) * (i / 4); let y = yScale(val);
+        svg += `<line x1="-5" y1="${y}" x2="${plotWidth}" y2="${y}" stroke="${i===0?'#333':'#e0e0e0'}" stroke-dasharray="${i===0?'0':'4'}"/>`;
+        svg += `<text x="-10" y="${y + 4}" text-anchor="end" font-size="11" fill="#666">${val.toFixed(2)}</text>`;
+    }
+
+    groupKeys.forEach(key => {
+        let vals = groups[key]; let cx = groupX(key);
+        svg += `<text x="${cx}" y="${plotHeight + 20}" text-anchor="middle" font-size="12" font-weight="bold" fill="#333">${key}</text>`;
+        svg += `<text x="${cx}" y="${plotHeight + 35}" text-anchor="middle" font-size="10" fill="#7f8c8d">(n=${vals.length})</text>`;
+        if(vals.length < 3) return;
+
+        let numBins = 25; let bins = Array(numBins).fill(0);
+        vals.forEach(v => {
+            let binIdx = Math.floor(((v - minY) / (maxY - minY)) * (numBins - 1));
+            if(binIdx >= 0 && binIdx < numBins) bins[binIdx]++;
+        });
+
+        let smoothed = Array(numBins).fill(0);
+        for(let i=0; i<numBins; i++) {
+            let sum = 0, weightTotal = 0;
+            for(let j=-2; j<=2; j++) { if(i+j >= 0 && i+j < numBins) { let w = (3 - Math.abs(j)); sum += bins[i+j] * w; weightTotal += w; } }
+            smoothed[i] = sum / weightTotal;
+        }
+
+        let maxBinCount = Math.max(...smoothed) || 1;
+        let maxWidth = (plotWidth / groupKeys.length) * 0.4;
+        let leftPoints = [], rightPoints = [];
+        
+        for(let i = 0; i < numBins; i++) {
+            let v = minY + (maxY - minY) * (i / (numBins - 1)); 
+            let y = yScale(v); 
+            let w = (smoothed[i] / maxBinCount) * maxWidth;
+            
+            leftPoints.push(`${cx - w},${y}`); 
+            rightPoints.unshift(`${cx + w},${y}`);
+        }
+        let polyPoints = leftPoints.concat(rightPoints).join(' ');
+        let color = key==="0"?"#95a5a6":(key==="1"?"#3498db":(key==="2"?"#9b59b6":"#e74c3c"));
+        svg += `<polygon points="${polyPoints}" fill="${color}" fill-opacity="0.6" stroke="${color}" stroke-width="1.5"/>`;
+
+        vals.sort((a,b)=>a-b);
+        let mid = vals[Math.floor(vals.length * 0.5)];
+        if (mid >= minY && mid <= maxY) {
+            svg += `<line x1="${cx - 15}" y1="${yScale(mid)}" x2="${cx + 15}" y2="${yScale(mid)}" stroke="#000" stroke-width="2.5"/>`;
+        }
+    });
+
+    svg += `</g></svg>`; 
+    wrapper.innerHTML = svg;
+
+    if (document.getElementById('toggleViolinBtn')) document.getElementById('toggleViolinBtn').style.display = "inline-block";
+    if (document.getElementById('downloadViolinBtn')) document.getElementById('downloadViolinBtn').style.display = "inline-block";
+}
+
+function replotCurrentViolin() {
+    if (window.currentActiveViolinKmer && window.currentActiveViolinKLen) {
+        generateViolinPlot(window.currentActiveViolinKmer, window.currentActiveViolinKLen);
+    }
+}
+
+function resetViolinYRange() {
+    document.getElementById('violinYMin').value = "";
+    document.getElementById('violinYMax').value = "";
+    replotCurrentViolin();
+}
+
+
+function downloadViolinPng() {
+    // 画面上に描画されているPNG要素を直接取得
+    const svgEl = document.getElementById('violinPng'); 
+    if (!svgEl) {
+        alert("❌ No plot is available. Please make one first.");
+        return;
+    }
+
+    // 1. 現在のアクティブなモチーフ名を取得してファイル名に使用（なければデフォルト名）
+    const motifName = window.currentActiveViolinKmer || "kmer";
+    const activeColKey = currentActiveColumn || "1";
+    const fileName = `violin_plot_${motifName}_col${activeColKey}.png`;
+
+    try {
+        // 2. SVGのXML文字列化と、XMLセーフな形式への完全エンコード
+        const serializer = new XMLSerializer();
+        let svgString = serializer.serializeToString(svgEl);
+        
+        // 特殊記号や日本語（「回」など）がブラウザのバイナリ変換で化けないよう完全にエスケープ
+        const svgBlob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
+        const URL = window.URL || window.webkitURL || window;
+        const blobURL = URL.createObjectURL(svgBlob);
+
+        // 3. 一時的なImageオブジェクトを作って、SVGを非同期ロード
+        const image = new Image();
+        image.onload = function() {
+            // ⭐️ 「300dpi相当の解像度」にするため、高密度キャンバス（1800x1200）を内部に生成
+            const scaleFactor = 3; 
+            const canvas = document.createElement('canvas');
+            
+            canvas.width = svgEl.clientWidth * scaleFactor || 1800;
+            canvas.height = svgEl.clientHeight * scaleFactor || 1200;
+            
+            const context = canvas.getContext('2d');
+            
+            // キャンバス全体を白背景で初期化（透過PNGにしない）
+            context.fillStyle = '#ffffff';
+            context.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // 縮尺スケールを設定して、PNGの全ベクトルパス（バイオリンの輪郭）を焼き付ける
+            context.scale(scaleFactor, scaleFactor);
+            context.drawImage(image, 0, 0);
+
+            // 4. キャンバスからPNGバイナリデータURL（3倍解像度）を出力
+            const pngURL = canvas.toDataURL('image/png');
+
+            // 5. 完全ローカル・サイレントダウンロードリンクを生成してキック
+            const downloadLink = document.createElement('a');
+            downloadLink.href = pngURL;
+            downloadLink.download = fileName;
+            document.body.appendChild(downloadLink);
+            downloadLink.click();
+            
+            // 後片付け（メモリリークの防止）
+            document.body.removeChild(downloadLink);
+            URL.revokeObjectURL(blobURL);
+        };
+
+        image.onerror = function(err) {
+            console.error("Failed in PNG image loading:", err);
+            alert("❌ Error in generating the image. Please try again with .fa/.gff files");
+        };
+
+        // イメージに解凍データのURLを食べさせて駆動
+        image.src = blobURL;
+
+    } catch (e) {
+        console.error("PNG emulation error:", e);
+        alert("❌ PNG generation was blocked by the browser");
+    }
+}
+
+
+function toggleRegionInputs() {
+    const type = document.getElementById('regionType').value;
+    const obox = document.getElementById('otherFeatureBox');
+    if (obox) {
+        obox.classList.remove('init-hidden');
+        obox.style.display = (type === 'other') ? 'inline-block' : 'none';
+    }
+    const cbox = document.getElementById('customAnchorBox');
+    if (cbox) {
+        cbox.classList.remove('init-hidden');
+        cbox.style.display = (type === 'custom') ? 'flex' : 'none';
+    }
+}
+
+async function parseLargeFileByLine(file, lineCallback) {
+    // ブラウザ標準のストリーミングAPI（ReadableStream / TextDecoderStream）を使用
+    const stream = file.stream();
+    const textDecoderStream = new TextDecoderStream("utf-8");
+    const reader = stream.pipeThrough(textDecoderStream).getReader();
+    
+    let partialLine = "";
+    while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        
+        let chunk = partialLine + value;
+        let lines = chunk.split('\n');
+        
+        partialLine = lines.pop(); 
+        
+        for (let i = 0; i < lines.length; i++) {
+            lineCallback(lines[i]);
+        }
+    }
+    if (partialLine.trim()) {
+        lineCallback(partialLine);
+    }
+}
+
+function parseGffAttributes(attrString) {
+    const attrs = {};
+    if (!attrString) return attrs;
+    attrString.trim().split(';').forEach(item => {
+        if (!item || !item.includes('=')) return;
+        const [key, val] = item.split('=', 2);
+        // Extracts arrays split by comma exactly like the reference code
+        attrs[key.trim()] = val.trim().split(',');
+    });
+    return attrs;
+}
+
+function resetIdFilterFile() {
+    const fileInput = document.getElementById('fileFilterIds');
+    if (fileInput) fileInput.value = "";
+    const statusLabel = document.getElementById('filterLoadStatus');
+    if (statusLabel) {
+        statusLabel.innerText = "NA (Target: All Genes)";
+        statusLabel.style.color = "#7f8c8d";
+    }
+}
+
+async function parseFilterIdsFile() {
+    const fileInput = document.getElementById('fileFilterIds');
+    if (!fileInput || !fileInput.files || fileInput.files.length === 0) return null;
+
+    const file = fileInput.files[0];
+    const colIdx = (parseInt(document.getElementById('filterIdColIdx').value) || 1) - 1;
+    const idSet = new Set();
+
+    // 削るオペレーション用の変数を取得
+    const stripPre = document.getElementById('filterStripPrefix').value.trim();
+    const stripSuf = document.getElementById('filterStripSuffix').value.trim();
+    const stripVersion = document.getElementById('filterStripVersion').checked;
+
+    // 🌟 つけるオペレーション用の変数を取得（追加実装）
+    const addPre = document.getElementById('filterAddPrefix').value.trim();
+    const addSuf = document.getElementById('filterAddSuffix').value.trim();
+
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const text = e.target.result.replace(/\r\n/g, '\n');
+            const lines = text.split('\n');
+            
+            lines.forEach(line => {
+                if (!line.trim() || line.startsWith('#')) return;
+                const tokens = line.split(/[\t,]+/);
+                if (tokens.length > colIdx && tokens[colIdx]) {
+                    let workingId = tokens[colIdx].trim().replace(/^>/, "");
+                    
+                    // ─── 1. 削るフェーズ（DELETE） ───
+                    if (stripPre && workingId.startsWith(stripPre)) {
+                        workingId = workingId.substring(stripPre.length);
+                    }
+                    if (stripSuf && workingId.endsWith(stripSuf)) {
+                        workingId = workingId.substring(0, workingId.length - stripSuf.length);
+                    }
+                    if (stripVersion) {
+                        workingId = workingId.replace(/\.\d+$/, "");
+                    }
+                    
+                    // ─── 2. つけるフェーズ（ADD）（🌟追加実装） ───
+                    workingId = addPre + workingId + addSuf;
+                    
+                    workingId = workingId.trim();
+                    if (workingId) {
+                        // GFFアノテーション側のIDと確実に紐付けるため大文字で保存
+                        idSet.add(workingId.toUpperCase());
+                    }
+                }
+            });
+            resolve(idSet);
+        };
+        reader.onerror = () => reject("Failed in reading the filter file");
+        reader.readAsText(file);
+    });
+}
+
+async function extractGenomicRegionsFromFile() {
+    const fileFaInput = document.getElementById('fileRefFa').files;
+    const fileGffInput = document.getElementById('fileGff').files;
+    
+    if (!fileFaInput || fileFaInput.length === 0 || !fileGffInput || fileGffInput.length === 0) {
+        alert("Provide both genome FASTA and GFF files");
+        return;
+    }
+    
+    const fileFa = fileFaInput[0];
+    const fileGff = fileGffInput[0];
+
+    const regionType = document.getElementById('regionType').value;
+    const otherFeatureName = document.getElementById('otherFeatureName').value.trim();
+    const customAnchor = document.getElementById('customAnchor').value;
+    const upBp = parseInt(document.getElementById('upBp').value) || 0;
+    const downBp = parseInt(document.getElementById('downBp').value) || 0;
+    const longestCdsOnly = document.getElementById('longestCdsOnly').checked;
+    const statusDiv = document.getElementById('extractionStatus');
+
+    statusDiv.innerHTML = "⏳ Reading the genome FASTA file...";
+
+    try {
+        // 抽出IDホワイトリストフィルターの読み込み (選択されている場合のみ)
+        const activeFilterSet = await parseFilterIdsFile();
+        if (activeFilterSet) {
+            document.getElementById('filterLoadStatus').innerText = `✅ ${activeFilterSet.size} IDs are applied`;
+            document.getElementById('filterLoadStatus').style.color = "#27ae60";
+        } else {
+            document.getElementById('filterLoadStatus').innerText = "NA (Target: All Genes)";
+            document.getElementById('filterLoadStatus').style.color = "#7f8c8d";
+        }
+
+        const faText = await readTextOrGzFile(fileFa);
+        statusDiv.innerHTML = "⏳ Building genome sequence index...";
+        
+        const genome = {};
+        const normalizedFa = faText.replace(/\r\n/g, '\n');
+        const faLines = normalizedFa.split('\n');
+        
+        let currentChr = null;
+        let chrBuffers = [];
+
+        for (let i = 0; i < faLines.length; i++) {
+            let line = faLines[i].trim();
+            if (!line) continue;
+            if (line.startsWith('>')) {
+                if (currentChr) {
+                    genome[currentChr] = chrBuffers.join('');
+                }
+                let parts = line.substring(1).split(/[\s|:]+/);
+                currentChr = parts[0].trim(); 
+                chrBuffers = [];
+            } else {
+                if (currentChr) {
+                    chrBuffers.push(line.toUpperCase());
+                }
+            }
+        }
+        if (currentChr) {
+            genome[currentChr] = chrBuffers.join('');
+        }
+
+        statusDiv.innerHTML = "⏳ Reading the GFF3 file...";
+        const gffText = await readTextOrGzFile(fileGff);
+        const normalizedGff = gffText.replace(/\r\n/g, '\n');
+        const gffLines = normalizedGff.split('\n');
+
+        const txMetadata = {};
+        const txExons = {};
+        const txCds = {};
+        const otherFeatures = {};
+
+        const cleanId = (idStr) => {
+            if (!idStr) return "";
+            return idStr.trim().replace(/^(transcript|gene|exon|cds|id|protein)-/i, "");
+        };
+
+        statusDiv.innerHTML = "⏳ Analyzing the GFF file...";
+        for (let i = 0; i < gffLines.length; i++) {
+            let line = gffLines[i];
+            if (line.startsWith('#') || !line.trim()) continue;
+            const parts = line.split('\t');
+            if (parts.length < 9) continue;
+
+            const chrom = parts[0].trim();
+            const featureType = parts[2].trim().toUpperCase();
+            const start = parseInt(parts[3].trim());
+            const end = parseInt(parts[4].trim());
+            const strand = parts[6].trim();
+            const attrString = parts[8].trim();
+
+            const attrs = parseGffAttributes(attrString);
+            
+            let rawId = attrs['ID'] ? attrs['ID'][0] : null;
+            let rawParent = attrs['Parent'] ? attrs['Parent'][0] : null;
+            let id = cleanId(rawId);
+            let parent = cleanId(rawParent);
+
+            if (featureType === 'PROTEIN' || featureType === 'FIVE_PRIME_UTR' || featureType === 'THREE_PRIME_UTR') {
+                if (id && parent) {
+                    txMetadata[id] = { parent: parent, strand: strand, chrom: chrom };
+                }
+                continue;
+            }
+
+            if (featureType === otherFeatureName.toUpperCase()) {
+                let pId = parent || id;
+                if (pId) {
+                    if (!otherFeatures[pId]) otherFeatures[pId] = [];
+                    otherFeatures[pId].push({ start, end, strand, chrom });
+                }
+            }
+
+            if (featureType === 'MRNA' || featureType === 'TRANSCRIPT') {
+                if (id && parent) {
+                    txMetadata[id] = { parent: parent, strand: strand, chrom: chrom };
+                }
+            } else if (featureType === 'EXON') {
+                if (parent) {
+                    if (!txExons[parent]) txExons[parent] = [];
+                    txExons[parent].push([start, end]);
+                }
+            } else if (featureType === 'CDS') {
+                if (parent) {
+                    if (!txCds[parent]) txCds[parent] = [];
+                    txCds[parent].push([start, end]);
+                }
+            }
+        }
+
+        statusDiv.innerHTML = "⏳ Generating sequences...";
+        const processedTranscripts = {};
+
+        for (const txId in txMetadata) {
+            const meta = txMetadata[txId];
+            
+            // ⭐️ IDフィルターセットの照合判定 (フィルター設定時のみ)
+            if (activeFilterSet) {
+                const hasGeneMatch = activeFilterSet.has(meta.parent.toUpperCase());
+                const hasTxMatch = activeFilterSet.has(txId.toUpperCase());
+                if (!hasGeneMatch && !hasTxMatch) {
+                    continue; // 登録のない遺伝子ID・転写物IDはスキップ
+                }
+            }
+
+            let exons = txExons[txId] || [];
+            let cds = txCds[txId] || [];
+            
+            if (exons.length === 0 && txExons[meta.parent]) {
+                exons = txExons[meta.parent];
+            }
+            if (cds.length === 0 && txCds[meta.parent]) {
+                cds = txCds[meta.parent];
+            }
+
+            if (exons.length === 0 || !genome[meta.chrom]) continue;
+
+            const chrom = meta.chrom;
+            const strand = meta.strand;
+            const chrSeq = genome[chrom];
+
+            exons.sort((a, b) => strand === '-' ? b[0] - a[0] : a[0] - b[0]);
+
+            let cdsMin = null, cdsMax = null;
+            if (cds && cds.length > 0) {
+                cdsMin = Math.min(...cds.map(c => c[0]));
+                cdsMax = Math.max(...cds.map(c => c[1]));
+            }
+
+            let cdnaFragments = [];
+            let cdnaLen = 0;
+            let cdsStartIdx = null;
+            let cdsEndIdx = null;
+
+            for (let j = 0; j < exons.length; j++) {
+                const eStart = exons[j][0];
+                const eEnd = exons[j][1];
+                
+                let exonSeq = chrSeq.substring(Math.max(0, eStart - 1), Math.min(chrSeq.length, eEnd));
+                if (strand === '-') exonSeq = getReverseComplementString(exonSeq);
+                const exonLen = eEnd - eStart + 1;
+
+                if (cdsMin !== null) {
+                    if (strand === '+') {
+                        if (eStart <= cdsMin && cdsMin <= eEnd) cdsStartIdx = cdnaLen + (cdsMin - eStart);
+                        if (eStart <= cdsMax && cdsMax <= eEnd) cdsEndIdx = cdnaLen + (cdsMax - eStart);
+                    } else {
+                        if (eStart <= cdsMax && cdsMax <= eEnd) cdsStartIdx = cdnaLen + (eEnd - cdsMax);
+                        if (eStart <= cdsMin && cdsMin <= eEnd) cdsEndIdx = cdnaLen + (eEnd - cdsMin);
+                    }
+                }
+                cdnaFragments.push(exonSeq);
+                cdnaLen += exonLen;
+            }
+
+            const fullCdnaSeq = cdnaFragments.join('');
+            let fiveUtr = "", cdsSeq = "", threeUtr = "";
+
+            if (cdsMin !== null && cdsStartIdx !== null && cdsEndIdx !== null) {
+                fiveUtr = fullCdnaSeq.substring(0, cdsStartIdx);
+                cdsSeq = fullCdnaSeq.substring(cdsStartIdx, cdsEndIdx);
+                threeUtr = fullCdnaSeq.substring(cdsEndIdx);
+            }
+
+            let customAnchorCoord = null;
+            if (regionType === 'custom') {
+                if (customAnchor === 'cdna_5') {
+                    customAnchorCoord = (strand === '-') ? Math.max(...exons.map(e => e[1])) : Math.min(...exons.map(e => e[0]));
+                } else if (customAnchor === 'cdna_3') {
+                    customAnchorCoord = (strand === '-') ? Math.min(...exons.map(e => e[0])) : Math.max(...exons.map(e => e[1]));
+                } else if (cdsMin !== null) {
+                    if (customAnchor === 'cds_5') customAnchorCoord = (strand === '-') ? cdsMax : cdsMin;
+                    else if (customAnchor === 'cds_3') customAnchorCoord = (strand === '-') ? cdsMin : cdsMax;
+                }
+            }
+
+            processedTranscripts[txId] = {
+                txId: txId,
+                geneId: meta.parent,
+                chrom: chrom,
+                strand: strand,
+                totalLen: cdnaLen,
+                cdsLen: cdsSeq.length,
+                fullCdna: fullCdnaSeq,
+                fiveUtr: fiveUtr,
+                cds: cdsSeq,
+                threeUtr: threeUtr,
+                customAnchorCoord: customAnchorCoord,
+                exons: exons
+            };
+        }
+
+        const geneLocusBuckets = {};
+        for (const txId in processedTranscripts) {
+            const data = processedTranscripts[txId];
+            if (!geneLocusBuckets[data.geneId]) geneLocusBuckets[data.geneId] = [];
+            geneLocusBuckets[data.geneId].push(data);
+        }
+
+        let outputFasta = "";
+        let extractedCount = 0;
+
+        for (const geneId in geneLocusBuckets) {
+            const variants = geneLocusBuckets[geneId];
+            let targetsToProcess = [];
+
+            if (longestCdsOnly) {
+                variants.sort((a, b) => {
+                    if (b.cdsLen !== a.cdsLen) return b.cdsLen - a.cdsLen;
+                    return b.totalLen - a.totalLen;
+                });
+                targetsToProcess.push(variants[0]);
+            } else {
+                targetsToProcess = variants;
+            }
+
+            targetsToProcess.forEach(item => {
+                let finalSeq = "";
+                let metaLabel = regionType;
+                const headerId = longestCdsOnly ? geneId : item.txId;
+
+                if (regionType === 'gene') {
+                    let minS = Math.min(...item.exons.map(e => e[0]));
+                    let maxE = Math.max(...item.exons.map(e => e[1]));
+                    finalSeq = genome[item.chrom].substring(minS - 1, maxE);
+                    if (item.strand === '-') finalSeq = getReverseComplementString(finalSeq);
+                    metaLabel = `gene_span:${item.chrom}:${minS}-${maxE}`;
+                } else if (regionType === 'cDNA') {
+                    finalSeq = item.fullCdna;
+                } else if (regionType === 'cds_feat') {
+                    finalSeq = item.cds;
+                } else if (regionType === 'other') {
+                    let oList = otherFeatures[item.txId] || otherFeatures[item.geneId] || [];
+                    if (oList.length === 0) return;
+                    oList.sort((a, b) => item.strand === '-' ? b.start - a.start : a.start - b.start);
+                    oList.forEach(o => {
+                        let f = genome[o.chrom].substring(o.start - 1, o.end);
+                        if (item.strand === '-') f = getReverseComplementString(f);
+                        finalSeq += f;
+                    });
+                } else if (regionType === 'custom') {
+                    if (item.customAnchorCoord === null) return;
+                    let startPos = (item.strand === '-') ? item.customAnchorCoord - downBp : item.customAnchorCoord - upBp;
+                    let endPos = (item.strand === '-') ? item.customAnchorCoord + upBp : item.customAnchorCoord + downBp;
+                    finalSeq = genome[item.chrom].substring(Math.max(0, startPos - 1), Math.min(genome[item.chrom].length, endPos));
+                    if (item.strand === '-') finalSeq = getReverseComplementString(finalSeq);
+                    metaLabel = `custom:${customAnchor}_up${upBp}_down${downBp}`;
+                }
+
+                if (!finalSeq || finalSeq.length === 0) return;
+                outputFasta += `>${headerId} [${metaLabel}]\n${finalSeq}\n`;
+                extractedCount++;
+            });
+        }
+
+        if (extractedCount === 0) {
+            statusDiv.innerHTML = "❌ No gene was extracted. Please check the input files and filter settings.";
+            document.getElementById('injectGroup').style.display = "none";
+        } else {
+            extractedFastaString = outputFasta;
+            statusDiv.innerHTML = `✅ Completed！ Extracted were ${extractedCount} sequences.`;
+            
+            document.getElementById('injectGroup').style.display = "flex";
+            setTimeout(() => {
+                updateInjectPreview();
+            }, 50);
+        }
+    } catch (error) { 
+        statusDiv.innerHTML = `❌ Error: ${error}`; 
+        console.error(error); 
+    }
+}
+
+function transformFastaHeaders(rawFastaString) {
+    if (!rawFastaString) return "";
+
+    // 画面の入力フィールドから現在の設定値をリアルタイムに回収
+    const stripPre = document.getElementById('injectStripPrefix').value;
+    const stripSuf = document.getElementById('injectStripSuffixText').value;
+    const stripVersion = document.getElementById('injectStripSuffix').checked;
+    const addPre = document.getElementById('injectPrefix').value;
+    const addSuf = document.getElementById('injectSuffix').value;
+
+    const lines = rawFastaString.split('\n');
+    for (let i = 0; i < lines.length; i++) {
+        if (lines[i].startsWith('>')) {
+            let headerContent = lines[i].substring(1);
+            let parts = headerContent.split(/([\s\[]+)/); // ID文字列とメタデータ（[gene_span...]など）を分離
+            let workingId = parts[0].trim();
+            
+            // ─── 1段階目: 削除フェーズ（TRIM） ───
+            // 前方の指定された文字列を完全に削る
+            if (stripPre && workingId.startsWith(stripPre)) {
+                workingId = workingId.substring(stripPre.length);
+            }
+            // 後方の指定された文字列を削る
+            if (stripSuf && workingId.endsWith(stripSuf)) {
+                workingId = workingId.substring(0, workingId.length - stripSuf.length);
+            }
+            // 植物データ用の標準正規表現によるドット末尾バージョン番号（.1や.2など）のカット
+            if (stripVersion) {
+                workingId = workingId.replace(/\.\d+$/, "");
+            }
+            
+            // ─── 2段階目: 追加フェーズ（ADD） ───
+            workingId = addPre + workingId + addSuf;
+            
+            // 変更後のIDをパーツ配列の先頭に再格納し、残りのメタデータとドッキング
+            parts[0] = workingId;
+            lines[i] = ">" + parts.join('');
+        }
+    }
+    return lines.join('\n');
+}
+
+function updateInjectPreview() {
+    if (typeof extractedFastaString === 'undefined' || !extractedFastaString) return;
+    
+    // UIをフリーズさせないため、抽出データの先頭15行（上位数件分）だけをちぎってダミー加工
+    const lines = extractedFastaString.split('\n');
+    const sampleSize = Math.min(lines.length, 15);
+    const sampleText = lines.slice(0, sampleSize).join('\n');
+    
+    // 現在のテキストボックス設定を適用して加工例を生成
+    const transformedSample = transformFastaHeaders(sampleText);
+    const transformedLines = transformedSample.split('\n');
+    
+    // 可読性を良くするため、配列の塩基配列（中身）は非表示にし、変換後の「>ヘッダー行」だけを抽出して4件分リスト化
+    const headersOnly = transformedLines.filter(line => line.startsWith('>')).slice(0, 4);
+    
+    const previewBox = document.getElementById('injectPreviewBox');
+    if (previewBox) {
+        // パネルのインサイドテキストを書き換え
+        previewBox.innerText = headersOnly.join('\n') + (transformedLines.filter(line => line.startsWith('>')).length > 4 ? '\n...' : '');
+    }
+}
+
+function injectExtractedData(targetMode) {
+    if (typeof extractedFastaString === 'undefined' || !extractedFastaString) {
+        alert("❌ No extracted sequence available. Please extract sequences first.");
+        return;
+    }
+
+    // 画面上で削ったり足したりした設定を「すべての数万本」のFASTAデータ全体に適用
+    const processedText = transformFastaHeaders(extractedFastaString);
+
+    if (targetMode === 'A-Target') {
+        const textareaA1 = document.getElementById('fasta1');
+        if (textareaA1) {
+            textareaA1.value = processedText;
+            textareaA1.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    } else if (targetMode === 'A-Background') {
+        // 🌟 NEW: Direct injection routing to Mode A Background Area (fasta2)
+        const textareaA2 = document.getElementById('fasta2');
+        if (textareaA2) {
+            textareaA2.value = processedText;
+            textareaA2.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    } else if (targetMode === 'B') {
+        const textareaB = document.getElementById('fastaAll');
+        if (textareaB) {
+            textareaB.value = processedText;
+            textareaB.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }
+}
+
+function toggleViolinContainer() {
+    const container = document.getElementById('violinPlotContainer');
+    if (!container) return;
+    if (container.style.display === 'none') {
+        container.style.display = 'block';
+    } else {
+        container.style.display = 'none';
+    }
+}
+
+
+</script>
+</body>
+</html>
