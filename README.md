@@ -3,6 +3,7 @@
 <p align="center">
   <img src="./MEAM-OWL.png" alt="MEAM-OWL logo" width="220">
 </p>
+
 ## Overview
 
 **MEAM-OWL (Motif Enrichment Analysis Modules on the Web, Lite)** is a
