@@ -162,8 +162,6 @@ The repository's `test/` directory contains example inputs for trying the applic
     *   Rauluseviciute I, Riudavets-Puig R, Blanc-Mathieu R, et al. JASPAR 2024: 20th anniversary of the open-access database of transcription factor binding profiles. Nucleic Acids Res. 2024; 52(D1): D174-D182. doi:[10.1093/nar/gkad1059](https://doi.org/10.1093/nar/gkad1059)
 *   **PLACE (Plant Cis-acting Regulatory DNA Elements)**
     *   Higo K, Ugawa Y, Iwamoto M, Korenaga T. Plant cis-acting regulatory DNA elements (PLACE) database: 1999. Nucleic Acids Res. 1999; 27(1): 297-300. doi:[10.1093/nar/27.1.297](https://doi.org/10.1093/nar/27.1.297)
-*   **DAP-seq (Cistrome and Epicistrome Database)**
-    *   O'Malley RC, Huang SC, Song L, et al. Cistrome and Epicistrome Features Shape the Regulatory DNA Landscape. Cell. 2016; 165(5): 1280-1292. doi:[10.1016/j.cell.2016.04.038](https://doi.org/10.1016/j.cell.2016.04.038)
 
 *Note: The statistical methods implemented inside MEAM-OWL are simplified, browser-optimized native JavaScript versions designed for fast exploratory analysis and do not make direct server-side calls to the original command-line tools or web servers.*
 
