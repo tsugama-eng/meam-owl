@@ -144,8 +144,28 @@ Benjamini–Hochberg adjusted P values are calculated before effect-based filter
 
 The repository's `test/` directory contains example inputs for trying the application. Reproduce a specific analysis using the same sequence and measurement files, reference versions, extraction settings, and analysis parameters.
 
-## Citation
+## References
+### Analysis Methods & Algorithms
 
+*   **HOMER (Hypergeometric Enrichment)**
+    *   Heinz S, Benner C, Spann N, et al. Simple combinations of lineage-determining transcription factors prime cis-regulatory elements required for macrophage and B cell identities. Mol Cell. 2010; 38(4): 576-589. doi:[10.1016/j.molcel.2010.05.004](https://doi.org/10.1016/j.molcel.2010.05.004)
+*   **DRIMust (Rank-based Enrichment)**
+    *   Leibovich L, Paz I, Yakhini Z, Mandel-Gutfreund Y. DRIMust: a web server for discovering rank imbalanced motifs using suffix trees. Nucleic Acids Res. 2013; 41(Web Server issue): W174-W179. doi:[10.1093/nar/gkt409](https://doi.org/10.1093/nar/gkt407)
+*   **False Discovery Rate (Benjamini–Hochberg Adjustment)**
+    *   Benjamini Y, Hochberg Y. Controlling the false discovery rate: a practical and powerful approach to multiple testing. *J R Stat Soc Series B Stat Methodol*. 1995; 57(1): 289-300. doi:[10.1111/j.2517-6161.1995.tb02031.x](https://doi.org/10.1111/j.2517-6161.1995.tb02031.x)
+
+### Reference Transcription Factor & Cis-Regulatory Databases
+
+*   **CIS-BP (The Catalog of Inferred Sequence Binding Preferences)**
+    *   Weirauch MT, Yang A, Albu M, et al. Determination and inference of eukaryotic transcription factor sequence specificity. Cell. 2014; 158(6): 1431-1443. doi:[10.1016/j.cell.2014.08.009](https://doi.org/10.1016/j.cell.2014.08.009)
+*   **JASPAR**
+    *   Rauluseviciute I, Riudavets-Puig R, Blanc-Mathieu R, et al. JASPAR 2024: 20th anniversary of the open-access database of transcription factor binding profiles. Nucleic Acids Res. 2024; 52(D1): D174-D182. doi:[10.1093/nar/gkad1059](https://doi.org/10.1093/nar/gkad1059)
+*   **PLACE (Plant Cis-acting Regulatory DNA Elements)**
+    *   Higo K, Ugawa Y, Iwamoto M, Korenaga T. Plant cis-acting regulatory DNA elements (PLACE) database: 1999. Nucleic Acids Res. 1999; 27(1): 297-300. doi:[10.1093/nar/27.1.297](https://doi.org/10.1093/nar/27.1.297)
+*   **DAP-seq (Cistrome and Epicistrome Database)**
+    *   O'Malley RC, Huang SC, Song L, et al. Cistrome and Epicistrome Features Shape the Regulatory DNA Landscape. Cell. 2016; 165(5): 1280-1292. doi:[10.1016/j.cell.2016.04.038](https://doi.org/10.1016/j.cell.2016.04.038)
+
+*Note: The statistical methods implemented inside MEAM-OWL are simplified, browser-optimized native JavaScript versions designed for fast exploratory analysis and do not make direct server-side calls to the original command-line tools or web servers.*
 
 
 ## License
