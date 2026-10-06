@@ -408,7 +408,7 @@
             </div>
 
             <div style="flex: 1; min-width: 280px;">
-                <strong style="color: #e67e22; display: block; margin-bottom: 5px;">📊 Mode B: Continuous Quant相関 Engine (DRIMust & Pearson)</strong>
+                <strong style="color: #e67e22; display: block; margin-bottom: 5px;">📊 Mode B: Continuous Quantitative Data-Utilizing Engine (DRIMust & Pearson)</strong>
                 <ul style="margin: 0; padding-left: 20px;">
                     <li><b>DRIMust Model:</b> Sorts the full dataset array dynamically by input expression fold-change columns and scans to find the optimal threshold partition score where motifs enrich.</li>
                     <li><b>Pearson Product-Moment:</b> Models continuous dosage-response signals. Tracks frequency numbers directly against absolute continuous expression trends.</li>
@@ -1579,6 +1579,12 @@ async function parseFilterIdsFile() {
 }
 
 async function extractGenomicRegionsFromFile() {
+    if(window.extractionInProgress) return;
+    extractedFastaString = '';
+    document.getElementById('injectGroup').style.display = 'none';
+    const preview = document.getElementById('injectPreviewBox');
+    if(preview) preview.textContent = '';
+
     const fileFaInput = document.getElementById('fileRefFa').files;
     const fileGffInput = document.getElementById('fileGff').files;
     
@@ -1593,12 +1599,17 @@ async function extractGenomicRegionsFromFile() {
     const regionType = document.getElementById('regionType').value;
     const otherFeatureName = document.getElementById('otherFeatureName').value.trim();
     const customAnchor = document.getElementById('customAnchor').value;
-    const upBp = parseInt(document.getElementById('upBp').value) || 0;
-    const downBp = parseInt(document.getElementById('downBp').value) || 0;
+    const upBp = Number(document.getElementById('upBp').value);
+    const downBp = Number(document.getElementById('downBp').value);
     const longestCdsOnly = document.getElementById('longestCdsOnly').checked;
     const statusDiv = document.getElementById('extractionStatus');
 
-    statusDiv.innerHTML = "⏳ Reading the genome FASTA file...";
+    if (regionType === 'custom' && (![upBp, downBp].every(n => Number.isSafeInteger(n) && n >= 0) || upBp + downBp === 0)) {
+        alert("Provide non-negative integer lengths; upstream + downstream must be greater than zero.");
+        return;
+    }
+    window.extractionInProgress = true;
+    statusDiv.innerHTML = "⏳ Reading annotation and planning genome intervals...";
 
     try {
         // 抽出IDホワイトリストフィルターの読み込み (選択されている場合のみ)
@@ -1609,36 +1620,6 @@ async function extractGenomicRegionsFromFile() {
         } else {
             document.getElementById('filterLoadStatus').innerText = "NA (Target: All Genes)";
             document.getElementById('filterLoadStatus').style.color = "#7f8c8d";
-        }
-
-        const faText = await readTextOrGzFile(fileFa);
-        statusDiv.innerHTML = "⏳ Building genome sequence index...";
-        
-        const genome = {};
-        const normalizedFa = faText.replace(/\r\n/g, '\n');
-        const faLines = normalizedFa.split('\n');
-        
-        let currentChr = null;
-        let chrBuffers = [];
-
-        for (let i = 0; i < faLines.length; i++) {
-            let line = faLines[i].trim();
-            if (!line) continue;
-            if (line.startsWith('>')) {
-                if (currentChr) {
-                    genome[currentChr] = chrBuffers.join('');
-                }
-                let parts = line.substring(1).split(/[\s|:]+/);
-                currentChr = parts[0].trim(); 
-                chrBuffers = [];
-            } else {
-                if (currentChr) {
-                    chrBuffers.push(line.toUpperCase());
-                }
-            }
-        }
-        if (currentChr) {
-            genome[currentChr] = chrBuffers.join('');
         }
 
         statusDiv.innerHTML = "⏳ Reading the GFF3 file...";
@@ -1709,6 +1690,16 @@ async function extractGenomicRegionsFromFile() {
             }
         }
 
+        statusDiv.textContent = "Scanning genome FASTA in bounded chunks...";
+        const requests = planGenomeIntervals(txMetadata, txExons, txCds, otherFeatures, {
+            region: regionType, anchor: customAnchor, up: upBp, down: downBp, filter: activeFilterSet
+        });
+        const streamedGenome = await readGenomeIntervals(fileFa, requests, bases => {
+            statusDiv.textContent = `Scanning genome: ${(bases / 1000000).toFixed(1)} million bases...`;
+        });
+        const genome = streamedGenome.genome;
+        window.lastGenomeReadMetrics = streamedGenome.metrics;
+        const wantSplicedSequence = regionType === 'cDNA' || regionType === 'cds_feat';
         statusDiv.innerHTML = "⏳ Generating sequences...";
         const processedTranscripts = {};
 
@@ -1757,7 +1748,7 @@ async function extractGenomicRegionsFromFile() {
                 const eStart = exons[j][0];
                 const eEnd = exons[j][1];
                 
-                let exonSeq = chrSeq.substring(Math.max(0, eStart - 1), Math.min(chrSeq.length, eEnd));
+                let exonSeq = wantSplicedSequence ? chrSeq.substring(Math.max(0, eStart - 1), Math.min(chrSeq.length, eEnd)) : '';
                 if (strand === '-') exonSeq = getReverseComplementString(exonSeq);
                 const exonLen = eEnd - eStart + 1;
 
@@ -1779,8 +1770,8 @@ async function extractGenomicRegionsFromFile() {
 
             if (cdsMin !== null && cdsStartIdx !== null && cdsEndIdx !== null) {
                 fiveUtr = fullCdnaSeq.substring(0, cdsStartIdx);
-                cdsSeq = fullCdnaSeq.substring(cdsStartIdx, cdsEndIdx);
-                threeUtr = fullCdnaSeq.substring(cdsEndIdx);
+                cdsSeq = fullCdnaSeq.substring(cdsStartIdx, cdsEndIdx + 1);
+                threeUtr = fullCdnaSeq.substring(cdsEndIdx + 1);
             }
 
             let customAnchorCoord = null;
@@ -1801,7 +1792,8 @@ async function extractGenomicRegionsFromFile() {
                 chrom: chrom,
                 strand: strand,
                 totalLen: cdnaLen,
-                cdsLen: cdsSeq.length,
+                cdsLen: wantSplicedSequence ? cdsSeq.length :
+                    (cdsStartIdx !== null && cdsEndIdx !== null ? Math.max(0, cdsEndIdx - cdsStartIdx + 1) : 0),
                 fullCdna: fullCdnaSeq,
                 fiveUtr: fiveUtr,
                 cds: cdsSeq,
@@ -1861,11 +1853,10 @@ async function extractGenomicRegionsFromFile() {
                     });
                 } else if (regionType === 'custom') {
                     if (item.customAnchorCoord === null) return;
-                    let startPos = (item.strand === '-') ? item.customAnchorCoord - downBp : item.customAnchorCoord - upBp;
-                    let endPos = (item.strand === '-') ? item.customAnchorCoord + upBp : item.customAnchorCoord + downBp;
-                    finalSeq = genome[item.chrom].substring(Math.max(0, startPos - 1), Math.min(genome[item.chrom].length, endPos));
+                    const [startPos, endPos] = customExtractionWindow(item.customAnchorCoord, item.strand, customAnchor, upBp, downBp);
+                    finalSeq = genome[item.chrom].substring(Math.max(0, startPos), Math.min(genome[item.chrom].length, endPos));
                     if (item.strand === '-') finalSeq = getReverseComplementString(finalSeq);
-                    metaLabel = `custom:${customAnchor}_up${upBp}_down${downBp}`;
+                    metaLabel = `custom:${customAnchor}_up${upBp}_down${downBp}_length${finalSeq.length}${finalSeq.length < upBp + downBp ? "_clipped" : ""}`;
                 }
 
                 if (!finalSeq || finalSeq.length === 0) return;
@@ -1887,9 +1878,11 @@ async function extractGenomicRegionsFromFile() {
             }, 50);
         }
     } catch (error) { 
+        extractedFastaString = '';
+        document.getElementById('injectGroup').style.display = 'none';
         statusDiv.innerHTML = `❌ Error: ${error}`; 
         console.error(error); 
-    }
+    } finally { window.extractionInProgress = false; }
 }
 
 function transformFastaHeaders(rawFastaString) {
@@ -1997,6 +1990,201 @@ function toggleViolinContainer() {
     }
 }
 
+/* Genome I/O repair only. GFF interpretation and analysis algorithms remain in index.html. */
+'use strict';
+
+// A 5' boundary is immediately before the first base in transcript orientation;
+// a 3' boundary is immediately after the last base. Coordinates here are 0-based, half-open.
+function customExtractionWindow(anchor, strand, anchorType, upstream, downstream) {
+    if (![upstream, downstream].every(n => Number.isSafeInteger(n) && n >= 0)) {
+        throw new Error('Upstream and downstream must be non-negative integer lengths.');
+    }
+    const fivePrime = anchorType.endsWith('_5');
+    const boundary = strand === '-' ? anchor - (fivePrime ? 0 : 1) : anchor - (fivePrime ? 1 : 0);
+    return strand === '-'
+        ? [boundary - downstream, boundary + upstream]
+        : [boundary - upstream, boundary + downstream];
+}
+
+// Plan exactly the intervals required by the existing extraction branches.
+// In particular, do not introduce exon fallbacks or change GFF ID/Parent requirements.
+function planGenomeIntervals(txMetadata, txExons, txCds, otherFeatures, options) {
+    const requests = new Map();
+    function add(chrom, start, end) {
+        start = Math.max(0, start);
+        if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || end <= start) return;
+        if (!requests.has(chrom)) requests.set(chrom, []);
+        requests.get(chrom).push([start, end]);
+    }
+    for (const [txId, meta] of Object.entries(txMetadata)) {
+        if (options.filter && !options.filter.has(txId.toUpperCase()) && !options.filter.has(meta.parent.toUpperCase())) continue;
+        const exons = txExons[txId]?.length ? txExons[txId] : (txExons[meta.parent] || []);
+        const cds = txCds[txId]?.length ? txCds[txId] : (txCds[meta.parent] || []);
+        if (!exons.length) continue; // Same requirement as the original engine.
+        const min = a => a.reduce((v, x) => Math.min(v, x[0]), Infinity);
+        const max = a => a.reduce((v, x) => Math.max(v, x[1]), -Infinity);
+        if (options.region === 'gene') add(meta.chrom, min(exons) - 1, max(exons));
+        else if (options.region === 'cDNA' || options.region === 'cds_feat') {
+            for (const [start, end] of exons) add(meta.chrom, start - 1, end);
+        } else if (options.region === 'other') {
+            for (const feature of (otherFeatures[txId] || otherFeatures[meta.parent] || [])) add(feature.chrom, feature.start - 1, feature.end);
+        } else if (options.region === 'custom') {
+            const spans = options.anchor.startsWith('cdna_') ? exons : cds;
+            if (!spans.length) continue;
+            const five = options.anchor.endsWith('_5');
+            const anchor = (meta.strand === '-') === five ? max(spans) : min(spans);
+            const [start, end] = customExtractionWindow(anchor, meta.strand, options.anchor, options.up, options.down);
+            add(meta.chrom, start, end);
+        }
+    }
+    for (const [chrom, ranges] of requests) {
+        ranges.sort((a, b) => a[0] - b[0]);
+        const merged = [];
+        for (const range of ranges) {
+            const last = merged[merged.length - 1];
+            if (last && range[0] <= last[1]) last[1] = Math.max(last[1], range[1]);
+            else merged.push([...range]);
+        }
+        requests.set(chrom, merged);
+    }
+    return requests;
+}
+
+// Use the bundled pako incrementally: native DecompressionStream implementations
+// differ in their handling of concatenated gzip members. Validate each trailer.
+async function* genomeTextChunks(file) {
+    const compressed = /\.gz$/i.test(file.name);
+    if (compressed && typeof pako === 'undefined') throw new Error('The bundled pako.min.js is required to read gzip files.');
+    const reader = file.stream().getReader();
+    const decoder = new TextDecoder('utf-8', { fatal: true });
+    let inflate = null, output = [];
+    function pushCompressed(bytes, final = false) {
+        if (!inflate || inflate.ended) {
+            inflate = new pako.Inflate({ windowBits: 31, chunkSize: 65536 });
+            inflate.onData = chunk => output.push(chunk);
+        }
+        if (!inflate.push(bytes, final) || inflate.err) throw new Error(`Invalid or truncated gzip file: ${inflate.msg || inflate.err}`);
+    }
+    try {
+        while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            // Limit compressed input per push, so even highly repetitive genomes
+            // cannot accumulate a whole uncompressed chromosome in the output queue.
+            const step = compressed ? 8192 : 262144;
+            for (let at = 0; at < value.length; at += step) {
+                if (compressed) pushCompressed(value.subarray(at, at + step));
+                else output.push(value.subarray(at, at + step));
+                for (const bytes of output) {
+                    const text = decoder.decode(bytes, { stream: true });
+                    if (text) yield text;
+                }
+                output = [];
+            }
+        }
+        if (compressed && (!inflate || !inflate.ended)) {
+            pushCompressed(new Uint8Array(0), true);
+            for (const bytes of output) {
+                const text = decoder.decode(bytes, { stream: true });
+                if (text) yield text;
+            }
+        }
+        const tail = decoder.decode();
+        if (tail) yield tail;
+    } finally {
+        await reader.cancel().catch(() => {});
+        reader.releaseLock();
+    }
+}
+
+async function readGenomeIntervals(file, requests, onProgress = () => {}) {
+    const genome = Object.create(null);
+    let chrom = null, intervals = [], cursor = 0, position = 0;
+    let lineStart = true, inHeader = false, header = '';
+    let scanned = 0, nextYield = 8 * 1024 * 1024;
+    const metrics = { scannedBases: 0, retainedBases: 0, chromosomes: 0, maxTextChunk: 0 };
+    function finishChromosome() {
+        if (chrom === null) return;
+        const blocks = intervals.map(r => ({ start: r.start, end: r.start + r.parts.reduce((n, s) => n + s.length, 0), text: r.parts.join('') }));
+        const length = position;
+        genome[chrom] = {
+            length,
+            substring(start, end) {
+                start = Math.max(0, Math.min(length, Math.trunc(start)));
+                end = Math.max(0, Math.min(length, Math.trunc(end)));
+                if (start > end) [start, end] = [end, start];
+                if (start === end) return '';
+                let lo = 0, hi = blocks.length - 1;
+                while (lo <= hi) {
+                    const mid = (lo + hi) >> 1, block = blocks[mid];
+                    if (start < block.start) hi = mid - 1;
+                    else if (start >= block.end) lo = mid + 1;
+                    else {
+                        if (end > block.end) break;
+                        return block.text.substring(start - block.start, end - block.start);
+                    }
+                }
+                throw new Error(`Unplanned genome interval: ${chrom}:${start + 1}-${end}`);
+            }
+        };
+        metrics.retainedBases += blocks.reduce((n, b) => n + b.text.length, 0);
+        metrics.chromosomes++;
+    }
+    function startChromosome() {
+        finishChromosome();
+        // Preserve the original genome header matching rule exactly.
+        chrom = header.slice(1).trim().split(/[\s|:]+/)[0];
+        intervals = (requests.get(chrom) || []).map(([start, end]) => ({ start, end, parts: [] }));
+        cursor = 0;
+        position = 0;
+        header = '';
+        inHeader = false;
+    }
+    function sequence(part) {
+        const text = part.trim().toUpperCase();
+        if (chrom === null || !text) return;
+        const stop = position + text.length;
+        while (cursor < intervals.length && intervals[cursor].end <= position) cursor++;
+        for (let i = cursor; i < intervals.length && intervals[i].start < stop; i++) {
+            const r = intervals[i], a = Math.max(position, r.start), b = Math.min(stop, r.end);
+            if (b > a) r.parts.push(text.substring(a - position, b - position));
+        }
+        position = stop;
+        scanned += text.length;
+    }
+    for await (const chunk of genomeTextChunks(file)) {
+        metrics.maxTextChunk = Math.max(metrics.maxTextChunk, chunk.length);
+        let at = 0;
+        while (at < chunk.length) {
+            if (lineStart) {
+                // Existing FASTA parsing permits whitespace before the header.
+                while (at < chunk.length && /[\t \r\n]/.test(chunk[at])) at++;
+                if (at === chunk.length) break;
+                inHeader = chunk[at] === '>';
+                lineStart = false;
+            }
+            let nl = chunk.indexOf('\n', at);
+            const stop = nl === -1 ? chunk.length : nl;
+            const part = chunk.substring(at, stop);
+            if (inHeader) {
+                header += part;
+                if (header.length > 1048576) throw new Error('FASTA header exceeds 1 MiB. Check the input format.');
+                if (nl !== -1) startChromosome();
+            } else sequence(part);
+            if (nl !== -1) lineStart = true;
+            at = stop + (nl === -1 ? 0 : 1);
+        }
+        if (scanned >= nextYield) {
+            onProgress(scanned);
+            await new Promise(resolve => setTimeout(resolve, 0));
+            nextYield = scanned + 8 * 1024 * 1024;
+        }
+    }
+    if (inHeader) startChromosome();
+    finishChromosome();
+    metrics.scannedBases = scanned;
+    return { genome, metrics };
+}
 
 </script>
 </body>
