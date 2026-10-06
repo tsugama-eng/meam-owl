@@ -991,7 +991,7 @@ function runRankedAnalysis(mode) {
                 colResults[i].fdr = colResults[i].pValue * (colResults.length / (i + 1)); if (colResults[i].fdr > 1) colResults[i].fdr = 1;
             }
 
-            let filtered = colResults.filter(r => r.p.fdr < 0.05);
+            let filtered = colResults.filter(r => r.fdr < 0.05);
             let clusteredResults = [];
             const enableCluster = document.getElementById('enableClusterB').checked, coreLen = parseInt(document.getElementById('clusterCoreLenB').value) || 4;
             if (enableCluster) { clusteredResults = applyClustering(filtered, coreLen); } 
