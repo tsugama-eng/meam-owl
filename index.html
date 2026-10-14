@@ -38,6 +38,7 @@
         
         .file-input-container { margin-bottom: 10px; background: #edf2f7; padding: 8px; border-radius: 6px; display: flex; align-items: center; gap: 10px; box-sizing: border-box; }
         .controls-inner { background: #f1f2f6; padding: 12px; border-radius: 6px; margin-bottom: 15px; display: flex; align-items: center; gap: 15px; flex-wrap: wrap; font-size: 14px; box-sizing: border-box; }
+        .init-hidden { display: none; }
         .btn-group { display: flex; gap: 10px; flex-wrap: wrap; }
         
         button { border: none; padding: 11px 20px; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: bold; transition: all 0.2s; }
@@ -132,10 +133,10 @@
                 <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center; width: 100%;">
                     <div>
                         <label for="kInputB" style="display:inline; margin-right:3px; color:#d35400; font-weight:bold;">k-mer Size:</label>
-                        <input type="text" id="kInputB" value="4-5" style="width: 60px;" placeholder="e.g. 4-5">
+                        <input type="text" id="kInputB" value="4-6" style="width: 60px;" placeholder="e.g. 4-6">
                     </div>
                     <div style="font-size:12px;">ID Col Index: <input type="number" id="idColIdx" value="1" min="1" max="100" style="width: 35px; padding: 2px;"></div>
-                    <div style="font-size:12px;">Expression Col(s): <input type="text" id="expColIdxs" value="5" style="width: 55px; padding: 2px;" placeholder="e.g. 5,6"></div>
+                    <div style="font-size:12px;">Expression Col(s): <input type="text" id="expColIdxs" value="2" style="width: 55px; padding: 2px;" placeholder="e.g. 5,6"></div>
                     <div>
                         <input type="checkbox" id="ignoreRCB" style="cursor:pointer;"><label for="ignoreRCB" style="display:inline; cursor:pointer; font-weight:normal; margin-left:3px; color:#d35400;">Strand Specific</label>
                     </div>
@@ -258,7 +259,7 @@
                     <option value="cDNA">cDNA (exon)</option>
                     <option value="cds_feat">CDS (exon - UTR)</option>
                     <option value="other">Other feature (Any in the third column of GFF)</option>
-                    <option value="custom">Custom (relative to the base position)</option>
+                    <option value="custom">Custom (relative to the end boundary)</option>
                 </select>
             </div>
             
@@ -270,7 +271,7 @@
 
             <!-- For Custom (initially hidden) -->
             <div id="customAnchorBox" class="init-hidden" style="margin-left:10px; align-items:center; gap:10px;">
-                <label style="display:inline; font-weight:normal;">Base position:</label>
+                <label style="display:inline; font-weight:normal;">Boundary:</label>
                 <select id="customAnchor">
                     <option value="cdna_5">cDNA 5' end</option>
                     <option value="cdna_3">cDNA 3' end</option>
@@ -279,6 +280,7 @@
                 </select>
                 <label style="display:inline; font-weight:normal;">Upstream (bp): <input type="number" id="upBp" value="500" style="width:60px;"></label>
                 <label style="display:inline; font-weight:normal;">Downstream (bp): <input type="number" id="downBp" value="0" style="width:60px;"></label>
+                <span style="font-size:12px;">Length = upstream + downstream; chromosome edges may shorten the result.</span>
             </div>
 
             <!-- Checkbox For Using Representative Transcript Variant (default: OFF) -->
@@ -350,7 +352,7 @@
             <!-- 🎯 Mode A Support: Target Gene ID Extraction Panel -->
             <div style="flex: 1.6; background: #e8f4fd; border: 1px dashed #2980b9; padding: 10px; border-radius: 6px; display: flex; flex-direction: column; gap: 6px;">
                 <div style="display: flex; align-items: center; justify-content: space-between;">
-                    <label style="color: #2980b9; margin: 0; font-size: 13px; font-weight: bold;">🎯 Gene ID Filter (CSV/TSV/TXT)</label>
+                    <label style="color: #2980b9; margin: 0; font-size: 13px; font-weight: bold;">🎯 Gene ID Filter (CSV/TSV/TXT対応)</label>
                     <button type="button" style="background: #e74c3c; color: white; border: none; padding: 1px 6px; font-size: 10px; border-radius: 3px; cursor: pointer;" onclick="resetIdFilterFile()">クリア</button>
                 </div>
                 
@@ -408,7 +410,7 @@
             </div>
 
             <div style="flex: 1; min-width: 280px;">
-                <strong style="color: #e67e22; display: block; margin-bottom: 5px;">📊 Mode B: Continuous Quantitative Data-Utilizing Engine (DRIMust & Pearson)</strong>
+                <strong style="color: #e67e22; display: block; margin-bottom: 5px;">📊 Mode B: Continuous Quant相関 Engine (DRIMust & Pearson)</strong>
                 <ul style="margin: 0; padding-left: 20px;">
                     <li><b>DRIMust Model:</b> Sorts the full dataset array dynamically by input expression fold-change columns and scans to find the optimal threshold partition score where motifs enrich.</li>
                     <li><b>Pearson Product-Moment:</b> Models continuous dosage-response signals. Tracks frequency numbers directly against absolute continuous expression trends.</li>
@@ -442,6 +444,7 @@ let currentModeLabelGlobal = "";
 let currentPrefixGlobal = "";
 
 window.addEventListener('DOMContentLoaded', () => {
+    toggleRegionInputs();
     const info = document.getElementById('dbLoadStatus'); if (!info) return;
     if (typeof EXTENDED_MOTIF_DB !== 'undefined' && Array.isArray(EXTENDED_MOTIF_DB)) {
         info.style.color = "#27ae60"; info.innerHTML = `📦 External DB (motif_db.js) loaded: <span style="background:#e8f8f5; padding:2px 6px; border-radius:4px;">${EXTENDED_MOTIF_DB.length} motifs</span> available`;
@@ -461,7 +464,7 @@ function parseFasta(text) { if (!text.trim()) return []; const lines = text.spli
 
 function parseFastaWithIds(text) {
     if (!text.trim()) return {};
-    const lines = text.split('\n'); const obj = {}; let curId = "", curSeq = "";
+    const lines = text.split('\n'); const obj = Object.create(null), seen = new Set(); let curId = "", curSeq = "";
     for (let l of lines) {
         let line = l.trim();
         if (line.startsWith('>')) {
@@ -469,6 +472,9 @@ function parseFastaWithIds(text) {
             let parts = line.substring(1).trim().split(/[|\s]+/);
             // 配列の最初の要素（ID文字列）に対してtrimをかける
             curId = parts.length > 0 ? parts[0].trim() : "";
+            if (!curId) throw new Error("FASTA header has an empty ID.");
+            if (seen.has(curId)) throw new Error(`Duplicate FASTA ID: ${curId}`);
+            seen.add(curId);
             curSeq = "";
         } else {
             curSeq += line.toUpperCase();
@@ -483,29 +489,130 @@ function sampleSequences(seqs, size) { if (seqs.length <= size) return seqs; con
 function bitToSeq(bit, k) { const bases = ['A', 'C', 'G', 'T']; let seq = ""; for (let i = k - 1; i >= 0; i--) seq += bases[(bit >> (2 * i)) & 3]; return seq; }
 function getReverseComplementBit(bitX, k) { let rc = 0; for (let i = 0; i < k; i++) { rc = (rc << 2) | (((bitX >> (2 * i)) & 3) ^ 3); } return rc; }
 
-function parseKSizeInput(str) { 
-    str = str.trim(); 
-    if (str.includes('-')) { 
-        const p = str.split('-').map(Number); 
-        if (p.length === 2 && !isNaN(p[0]) && !isNaN(p[1])) { 
-            let arr = []; 
-            let start = Math.min(p[0], p[1]);
-            let end = Math.max(p[0], p[1]);
-            for(let i = start; i <= end; i++) arr.push(i); 
-            return arr; 
-        } 
-    } 
-    if (str.includes(',')) return str.split(',').map(x => parseInt(x.trim(), 10)).filter(x => !isNaN(x)); 
-    const s = parseInt(str, 10); 
-    return !isNaN(s) ? [s] : []; 
+function parseKSizeInput(str, max = 15) {
+    const text = String(str).trim();
+    if (!/^(?:\d+\s*-\s*\d+|\d+(?:\s*,\s*\d+)*)$/.test(text)) return [];
+    const numbers = text.split(/[-,]/).map(Number);
+    if (numbers.some(n => !Number.isSafeInteger(n) || n < 1 || n > max)) return [];
+    return [...new Set(text.includes('-') ? Array.from({length: Math.abs(numbers[1]-numbers[0])+1}, (_,i)=>Math.min(...numbers)+i) : numbers)];
+}
+function requiredInteger(value, label, min = 1, max = Number.MAX_SAFE_INTEGER) {
+    const text = String(value).trim(), n = Number(text);
+    if (!/^\d+$/.test(text) || !Number.isSafeInteger(n) || n < min || n > max) throw new Error(`${label}: enter an integer from ${min} to ${max}.`);
+    return n;
+}
+function strictMeasurement(value) {
+    const text = String(value ?? '').trim();
+    if (!text || /^(NA|NaN|N\/A)$/i.test(text)) return null;
+    if (!/^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/.test(text) || !Number.isFinite(Number(text))) throw new Error(`Invalid numeric measurement: ${text}`);
+    return Number(text);
+}
+function parseNumericRows(text) {
+    text = text.replace(/^\uFEFF/, '');
+    let quoted = false, tabs = 0, commas = 0;
+    for (let i=0;i<text.length;i++) {
+        const c=text[i];
+        if(c==='"') { if(quoted && text[i+1]==='"') i++; else quoted=!quoted; }
+        else if(!quoted) { if(c==='\n'||c==='\r') break; if(c==='\t') tabs++; if(c===',') commas++; }
+    }
+    const sep=tabs>commas?'\t':',';
+    const rows=[]; let row=[],field='',inQuote=false,closed=false;
+    function pushField(){row.push(field);field='';closed=false;}
+    function pushRow(){pushField();if(row.some(v=>v.trim()!==''))rows.push(row);row=[];}
+    for(let i=0;i<text.length;i++) {
+        const c=text[i];
+        if(inQuote){if(c==='"'){if(text[i+1]==='"'){field+='"';i++;}else{inQuote=false;closed=true;}}else field+=c;continue;}
+        if(c===sep){pushField();continue;}
+        if(c==='\n'||c==='\r'){if(c==='\r'&&text[i+1]==='\n')i++;pushRow();continue;}
+        if(c==='"'&&!field&&!closed){inQuote=true;continue;}
+        if(closed && /\s/.test(c))continue;
+        if(closed||c==='"')throw new Error('Malformed quoted CSV/TSV field.');
+        field+=c;
+    }
+    if(inQuote)throw new Error('Unclosed quoted CSV/TSV field.');
+    if(field||row.length||closed)pushRow();
+    return rows;
+}
+function parseExpressionTable(text, fastaMap, idCol, expCols) {
+    const rows=parseNumericRows(text), seen=new Set(), parsed=[];
+    if(!rows.length)throw new Error('The numeric table is empty.');
+    const width=rows[0].length;
+    if(Math.max(idCol,...expCols)>=width)throw new Error('Selected column index exceeds table width.');
+    for(let i=0;i<rows.length;i++){
+        const tokens=rows[i];
+        if(tokens.length!==width)throw new Error(`Table row ${i+1}: inconsistent column count.`);
+        const id=tokens[idCol].trim().replace(/^>/,'').split(/[|\s]+/)[0];
+        // A first-row label is a header only when it is not a sequence ID and
+        // every selected measurement is a nonnumeric, nonmissing label.
+        if(i===0 && !Object.prototype.hasOwnProperty.call(fastaMap,id) && expCols.every(c=>{try{strictMeasurement(tokens[c]);return false;}catch{return true;}}))continue;
+        if(!id)throw new Error(`Table row ${i+1}: missing ID.`);
+        if(seen.has(id))throw new Error(`Duplicate numeric-table ID: ${id} (row ${i+1}).`);
+        seen.add(id);
+        expCols.forEach(c=>strictMeasurement(tokens[c]));
+        if(Object.prototype.hasOwnProperty.call(fastaMap,id))parsed.push({id,tokens});
+    }
+    return parsed;
+}
+function csvField(value) {
+    const text=String(value ?? '');
+    return /[",\r\n]/.test(text)?'"'+text.replace(/"/g,'""')+'"':text;
 }
 
 function zScoreToP(z) { if (z <= 0) return 1.0; const t = 1 / (1 + 0.2316419 * z), d = 0.3989423 * Math.exp(-z * z / 2); return d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274)))); }
 
 function tStatToP(t, df) {
-    if (df <= 0) return 1.0;
-    let z = (Math.abs(t) - (1 - 1 / (4 * df))) / Math.sqrt(1 + t * t / (2 * df));
-    return zScoreToP(z) * 2;
+    // Two-sided Student t tail: I_(df / (df + t^2))(df/2, 1/2).
+    // Evaluate the small tail directly, without the former normal approximation.
+    if (!Number.isFinite(df) || df <= 0 || Number.isNaN(t)) return 1;
+    if (!Number.isFinite(t)) return 0;
+    if (t === 0) return 1;
+    const a = df / 2, b = 0.5;
+    const ratio = Math.abs(t) / Math.sqrt(df);
+    const squaredRatio = ratio * ratio;
+    const x = 1 / (1 + squaredRatio);
+    const complement = squaredRatio / (1 + squaredRatio);
+    if (x === 0) return 0;
+    if (complement === 0) return 1;
+    function logGamma(z) {
+        const c = [676.5203681218851, -1259.1392167224028, 771.32342877765313,
+            -176.61502916214059, 12.507343278686905, -0.13857109526572012,
+            9.9843695780195716e-6, 1.5056327351493116e-7];
+        z -= 1;
+        let sum = 0.99999999999980993;
+        for (let i = 0; i < c.length; i++) sum += c[i] / (z + i + 1);
+        const v = z + 7.5;
+        return 0.9189385332046727 + (z + 0.5) * Math.log(v) - v + Math.log(sum);
+    }
+    function betaFraction(aa, bb, xx) {
+        const tiny = 1e-300;
+        let c = 1, d = 1 - (aa + bb) * xx / (aa + 1);
+        if (Math.abs(d) < tiny) d = tiny;
+        d = 1 / d;
+        let h = d;
+        for (let m = 1; m <= 10000; m++) {
+            const m2 = 2 * m;
+            const terms = [m * (bb - m) * xx / ((aa + m2 - 1) * (aa + m2)),
+                -(aa + m) * (aa + bb + m) * xx / ((aa + m2) * (aa + m2 + 1))];
+            for (let step = 0; step < 2; step++) {
+                const term = terms[step];
+                d = 1 + term * d;
+                if (Math.abs(d) < tiny) d = tiny;
+                c = 1 + term / c;
+                if (Math.abs(c) < tiny) c = tiny;
+                d = 1 / d;
+                const delta = d * c;
+                h *= delta;
+                if (step === 1 && Math.abs(delta - 1) < 3e-14) return h;
+            }
+        }
+        throw new Error('Student t probability calculation did not converge.');
+    }
+    const scale = Math.exp(logGamma(a + b) - logGamma(a) - logGamma(b)
+        - a * Math.log1p(squaredRatio) + b * (2 * Math.log(ratio) - Math.log1p(squaredRatio)));
+    const p = x < (a + 1) / (a + b + 2)
+        ? scale * betaFraction(a, b, x) / a
+        : 1 - scale * betaFraction(b, a, complement) / b;
+    return Math.min(1, Math.max(0, p));
 }
 
 function matchConsensus(kmer, consensus) {
@@ -603,7 +710,8 @@ function applyClustering(filteredResults, coreLen) {
         
         coreGroups.push({ 
             kmer: c, 
-            kLen: coreLen, 
+            kLen: coreLen,
+            representative: { kmer: leader.kmer, kLen: leader.kLen }, 
             pValue: leader.pValue, 
             fdr: leader.fdr, 
             effect: leader.effect, 
@@ -616,16 +724,22 @@ function applyClustering(filteredResults, coreLen) {
     return [...coreGroups, ...shortItems].sort((a, b) => a.pValue - b.pValue);
 }
 
-function renderResultTable(clusteredResults, modeName, prefix) {
-    const tbody = document.querySelector('#resultTable tbody'); 
-    tbody.innerHTML = "";
-    
+function getSelectedMotifDatabase(prefix) {
     let useJaspar = document.getElementById('dbJaspar' + prefix).checked;
     let usePlace = document.getElementById('dbPlace' + prefix).checked;
     let useDapSeq = document.getElementById('dbDapSeq' + prefix).checked;
     
     let activeDB = (typeof EXTENDED_MOTIF_DB !== 'undefined') ? EXTENDED_MOTIF_DB : FALLBACK_MOTIF_DB;
     activeDB = activeDB.filter(m => (m.db==="JASPAR"&&useJaspar) || (m.db==="PLACE"&&usePlace) || ((m.db==="DAP-Seq"||m.db.startsWith("CIS"))&&useDapSeq));
+
+    return activeDB;
+}
+
+function renderResultTable(clusteredResults, modeName, prefix) {
+    const tbody = document.querySelector('#resultTable tbody'); 
+    tbody.innerHTML = "";
+    
+    const activeDB = getSelectedMotifDatabase(prefix);
 
     clusteredResults.sort((a,b)=>a.pValue-b.pValue);
     clusteredResults.forEach(r => { r.matchedMotifs = activeDB.filter(m => matchConsensus(r.kmer, m.consensus)); });
@@ -690,15 +804,60 @@ function switchResultColumn(colIdx) {
 }
 
 // ======================== Mode A: Two Group Comparison ========================
+let analysisGeneration = 0;
+function clearAnalysisResults() {
+    analysisGeneration++;
+    batchCalculatedResults = {};
+    currentActiveColumn = null;
+    currentModeLabelGlobal = '';
+    currentPrefixGlobal = '';
+    window.currentGlobalGeneListMapForPlot = null;
+    window.currentGlobalKmerCountsForPlot = null;
+    window.currentActiveViolinKmer = null;
+    window.currentActiveViolinKLen = null;
+    window.currentActiveViolinIsCluster = false;
+    window.currentPlotIgnoreRC = undefined;
+    for (const id of ['downloadCsvBtn', 'downloadViolinBtn', 'toggleViolinBtn', 'violinPlotContainer', 'colSelectDropdown']) {
+        const element = document.getElementById(id);
+        if (element) element.style.display = 'none';
+    }
+    for (const id of ['colSelectDropdown', 'violinPngWrapper', 'violinTitle']) {
+        const element = document.getElementById(id);
+        if (element) element.innerHTML = '';
+    }
+    const body = document.querySelector('#resultTable tbody');
+    if (body) body.innerHTML = '';
+    return analysisGeneration;
+}
+function scheduleAnalysis(generation, calculation) {
+    setTimeout(() => {
+        if (generation !== analysisGeneration) return;
+        try { calculation(); }
+        catch (error) {
+            clearAnalysisResults();
+            const body = document.querySelector('#resultTable tbody');
+            if (body) body.textContent = 'Analysis failed: ' + error.message;
+            alert('Analysis failed: ' + error.message);
+        }
+    }, 40);
+}
 function runAnalysis(mode) {
+    const generation = clearAnalysisResults();
+    let maxBg;
+    try {
+        maxBg = requiredInteger(document.getElementById('sampleSize').value, 'Max Background Size');
+        if(document.getElementById('enableClusterA').checked) requiredInteger(document.getElementById('clusterCoreLenA').value, 'Core length', 1, 15);
+        parseFastaWithIds(document.getElementById('fasta1').value);
+        parseFastaWithIds(document.getElementById('fasta2').value);
+    } catch(e) { alert(e.message); return; }
     const kSizes = parseKSizeInput(document.getElementById('kInputA').value); if (!kSizes.length) { alert("k-mer length invalid"); return; }
-    const maxBg = parseInt(document.getElementById('sampleSize').value) || 1000; const ignoreRC = document.getElementById('ignoreRCA').checked;
+    const ignoreRC = document.getElementById('ignoreRCA').checked;
     
     document.getElementById('colSelectDropdown').style.display = "none";
     const tbodyInitial = document.querySelector('#resultTable tbody');
     tbodyInitial.innerHTML = `<tr><td colspan="7" style="text-align:center; color:#d63031; font-weight:bold;">⚡ Analyzing enrichment...</td></tr>`;
 
-    setTimeout(() => {
+    scheduleAnalysis(generation, () => {
         const raw1 = parseFasta(document.getElementById('fasta1').value); let raw2 = parseFasta(document.getElementById('fasta2').value);
         if (!raw1.length) { alert("Target FASTA Not Found"); tbodyInitial.innerHTML = `<tr><td colspan="7" style="text-align:center; color:#95a5a6;">Error</td></tr>`; return; }
         if (!raw2.length) { raw2 = raw1.map(s => { let a = s.split(''); for(let i=a.length-1; i>0; i--) { let j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a.join(''); }); }
@@ -718,45 +877,48 @@ function runAnalysis(mode) {
             }
             scan(seqs1, c1); scan(seqs2, c2);
 
-            for (let bX in c1) {
-                const obs = c1[bX].presence; let p = 1.0, info = "", eff = 0;
+            for (const bX of new Set([...Object.keys(c1), ...Object.keys(c2)])) {
+                const targetCounts = c1[bX] || { presence: 0, freq: {} };
+                const obs = targetCounts.presence; let p = 1.0, info = "", eff = 0, isEnriched = false;
                 let rc = getReverseComplementBit(Number(bX), k); let p_rand = (1 / Math.pow(4, k)) * ((!ignoreRC && rc !== Number(bX)) ? 2 : 1);
                 if (mode === 'homer') {
                     let rate = n2 > 0 ? ((c2[bX] ? c2[bX].presence : 0) / n2) : p_rand; if (rate === 0) rate = 1 / (n2 + 1);
-                    p = poissonLogSurvival(obs, n1 * rate); eff = (obs / n1) / rate; info = `Target: ${(obs/n1*100).toFixed(1)}% vs BG: ${(rate*100).toFixed(1)}%`;
+                    p = poissonLogSurvival(obs, n1 * rate); eff = (obs / n1) / rate; isEnriched = obs / n1 > rate; info = `Target: ${(obs/n1*100).toFixed(1)}% vs BG: ${(rate*100).toFixed(1)}%`;
                 } else {
-                    const f1 = { ...c1[bX].freq }; f1["0"] = n1 - obs; let f2 = c2[bX] ? { ...c2[bX].freq } : {}; f2["0"] = n2 - (c2[bX] ? c2[bX].presence : 0);
+                    const f1 = { ...targetCounts.freq }; f1["0"] = n1 - obs; let f2 = c2[bX] ? { ...c2[bX].freq } : {}; f2["0"] = n2 - (c2[bX] ? c2[bX].presence : 0);
                     const keys = Array.from(new Set([...Object.keys(f1), ...Object.keys(f2)])).map(Number).sort((a,b)=>a-b);
                     let rStart = 1, rSum1 = 0, ties = 0;
                     for (let v of keys) { const nv1 = f1[v]||0, nv2 = f2[v]||0, tc = nv1+nv2; if (tc > 0) { rSum1 += nv1 * (rStart + (tc - 1) / 2); if (tc > 1) ties += (Math.pow(tc, 3) - tc); rStart += tc; } }
                     const U1 = rSum1 - (n1 * (n1 + 1)) / 2, totN = n1 + n2; let varU = (n1 * n2 / (totN * (totN - 1))) * ((Math.pow(totN, 3) - totN - ties) / 12); if (varU <= 0) varU = (n1 * n2 * (totN + 1)) / 12;
                     p = zScoreToP((U1 - (n1 * n2) / 2 - 0.5) / Math.sqrt(varU));
                     let a1 = 0, a2 = 0; for (let key in f1) a1 += Number(key)*f1[key]; for (let key in f2) a2 += Number(key)*f2[key];
-                    a1 /= n1; a2 /= n2; eff = a2 === 0 ? a1 : a1 / a2; info = `Average Target: ${a1.toFixed(3)} vs BG: ${a2.toFixed(3)}`;
+                    a1 /= n1; a2 /= n2;
+                    isEnriched = a1 > a2;
+                    eff = a2 === 0 ? (a1 > 0 ? Infinity : 1) : a1 / a2;
+                    info = `Average Target: ${a1.toFixed(3)} vs BG: ${a2.toFixed(3)}${a2 === 0 && a1 > 0 ? ' (no background occurrences)' : ''}`;
                 }
-                if (eff > 1) globalResults.push({ kmer: bitToSeq(Number(bX), k), kLen: k, pValue: p, logInfo: info, effectVal: eff, effect: eff.toFixed(2) + "x", children: [] });
+                globalResults.push({ kmer: bitToSeq(Number(bX), k), kLen: k, pValue: p, logInfo: info, effectVal: eff, isEnriched, effect: eff === Infinity ? '∞x' : eff.toFixed(2) + "x", children: [] });
             }
         }
-        globalResults.sort((a, b) => a.pValue - b.pValue);
-        for (let i = 0; i < globalResults.length; i++) { globalResults[i].fdr = globalResults[i].pValue * (globalResults.length / (i + 1)); if (globalResults[i].fdr > 1) globalResults[i].fdr = 1; }
-        let filtered = globalResults.filter(r => r.fdr < 0.05);
+        applyBenjaminiHochberg(globalResults);
+        let filtered = globalResults.filter(r => r.fdr < 0.05 && r.isEnriched);
         let clusteredResults = [];
         const enableCluster = document.getElementById('enableClusterA').checked, coreLen = parseInt(document.getElementById('clusterCoreLenA').value) || 4;
         
         if (mode === 'extend') {
-            let seeds = globalResults.filter(r => r.kLen === 4).sort((a,b)=> (Math.abs(a.effectVal-b.effectVal)>0.5)?(b.effectVal-a.effectVal):(a.pValue-b.pValue));
+            let seeds = globalResults.filter(r => r.kLen === 4 && r.isEnriched).sort((a,b)=> (a.effectVal !== b.effectVal && Math.abs(a.effectVal-b.effectVal)>0.5)?(b.effectVal-a.effectVal):(a.pValue-b.pValue));
             let procSeeds = new Set(), maxK = Math.max(...kSizes);
             for (let sObj of seeds) {
                 if (procSeeds.has(sObj.kmer)) continue;
                 let curBest = sObj, curK = 4, path = [sObj.kmer];
                 while (curK < maxK) {
-                    let cand = globalResults.filter(r => r.kLen === (curK+1) && r.kmer.includes(curBest.kmer)).sort((a,b)=>a.pValue-b.pValue);
+                    let cand = globalResults.filter(r => r.kLen === (curK+1) && r.isEnriched && r.kmer.includes(curBest.kmer)).sort((a,b)=>a.pValue-b.pValue);
                     // ⭐️ 候補がない、または cand[0] が undefined の場合はループを抜ける
                     if (!cand.length || !cand[0] || cand[0].pValue > 0.05) break;
                     curBest = cand[0]; path.push(curBest.kmer); procSeeds.add(curBest.kmer); curK++;
                 }
                 // ⭐️ curBest が正常に存在する場合のみ結果に追加する安全ガード
-                if (curBest && curBest.kmer) {
+                if (curBest && curBest.kmer && curBest.fdr < 0.05) {
                     let item = { ...curBest, children: [] }; if (path.length > 1) item.children = path.slice(0, -1);
                     if (!clusteredResults.some(r => r.kmer === item.kmer)) clusteredResults.push(item);
                 }
@@ -774,61 +936,46 @@ function runAnalysis(mode) {
         
         renderResultTable(clusteredResults, currentModeLabelGlobal, 'A');
         document.getElementById('downloadCsvBtn').style.display = "inline-block";
-    }, 40);
+    });
 }
 
 // ======================== Mode B: Expression-Based Engine ========================
 function runRankedAnalysis(mode) {
+    const generation = clearAnalysisResults();
     const kSizes = parseKSizeInput(document.getElementById('kInputB').value); if (!kSizes.length) { alert("k-mer長指定が不正です。"); return; }
     if (kSizes.some(k => k > 6)) { alert("🚨 Use 6 or a smaller value"); return; }
 
-    const idCol = parseInt(document.getElementById('idColIdx').value) - 1;
-
-    // 既存の parseKSizeInput 関数を流用して、ハイフン範囲（4-6など）を列番号の配列にパース
-    const expCols = parseKSizeInput(document.getElementById('expColIdxs').value).map(x => x - 1).filter(x => x >= 0);
-
-    if (!expCols.length) { alert("Provide a valid column index for expression levels"); return; }
-
+    let idCol, expCols, clipLimit, fastaMap, parsedLines;
+    try {
+        idCol = requiredInteger(document.getElementById('idColIdx').value, 'ID column') - 1;
+        const tableWidth = parseNumericRows(document.getElementById('textExp').value)[0]?.length || 0;
+        expCols = parseKSizeInput(document.getElementById('expColIdxs').value, tableWidth).map(x=>x-1);
+        if(!expCols.length) throw new Error('Invalid expression column selection.');
+        clipLimit = requiredInteger(document.getElementById('clipCount').value, 'Clipping cap', 1, 65535);
+        if(document.getElementById('enableClusterB').checked) requiredInteger(document.getElementById('clusterCoreLenB').value, 'Core length', 1, 6);
+        fastaMap = parseFastaWithIds(document.getElementById('fastaAll').value);
+        parsedLines = parseExpressionTable(document.getElementById('textExp').value, fastaMap, idCol, expCols);
+    } catch(e) { alert(e.message); return; }
     const ignoreRC = document.getElementById('ignoreRCB').checked;
-    const clipLimit = parseInt(document.getElementById('clipCount').value) || 3;
-    
+    window.currentPlotIgnoreRC = ignoreRC;
+
     const tbodyInitial = document.querySelector('#resultTable tbody');
     tbodyInitial.innerHTML = `<tr><td colspan="7" style="text-align:center; color:#e67e22; font-weight:bold;">⚡ Analyzing enrichment...</td></tr>`;
 
-    setTimeout(() => {
-        const fastaMap = parseFastaWithIds(document.getElementById('fastaAll').value);
-        const expLines = document.getElementById('textExp').value.split('\n');
-        
-        // 1. 最初の一回だけ発現テキストデータをパースしてメモリに構造化
-        let parsedLines = [];
-        let validGeneIdsSet = new Set();
-        
-        for (let line of expLines) {
-            let tokens = line.trim().split(/[\t,]+/);
-            if (tokens.length > idCol && !line.startsWith("Gene") && !line.startsWith("gene")) {
-                if (tokens[idCol]) {
-                    let parts = tokens[idCol].trim().replace(/^>/, "").split(/[|\s]+/);
-                    let gId = parts.length > 0 ? parts[0].trim() : "";
-                    if (gId && fastaMap[gId]) {
-                        validGeneIdsSet.add(gId);
-                        parsedLines.push({ id: gId, tokens: tokens });
-                    }
-                }
-            }
-        }
-        
-        let validGeneIds = Array.from(validGeneIdsSet);
+    scheduleAnalysis(generation, () => {
+        const validGeneIds = [...new Set(parsedLines.map(row=>row.id))];
         if (validGeneIds.length < 5) { alert("Valid data are for less than 5 genes"); tbodyInitial.innerHTML = `<tr><td colspan="7" style="text-align:center; color:#95a5a6;">Sequence-Expression Matching Error</td></tr>`; return; }
 
         const totalN = validGeneIds.length;
         
         // ✨ 遺伝子IDから配列インデックスを高速で引くためのルックアップ辞書を作成(O(1))
-        let geneIdxLookup = {};
+        let geneIdxLookup = Object.create(null);
         validGeneIds.forEach((id, idx) => { geneIdxLookup[id] = idx; });
 
         // 2. 配列のk-merカウント (1回きりのハッシュマップ生成)
         const bToInt = { 'A': 0, 'C': 1, 'G': 2, 'T': 3 };
         let allKmerCounts = {};
+        let countOverflow = false;
         
         for (let k of kSizes) {
             const mask = (1 << (2 * k)) - 1;
@@ -836,6 +983,7 @@ function runRankedAnalysis(mode) {
             
             // ─── 【Mode B本体】k-merカウント走査ブロック ───
             validGeneIds.forEach((gId, gIdx) => {
+                if (countOverflow) return;
                 let win = 0, bitX = 0;
                 let seq = fastaMap[gId];
                 for (let i = 0; i < seq.length; i++) {
@@ -861,7 +1009,13 @@ function runRankedAnalysis(mode) {
                             // 文字列型としてハッシュマップへ登録
                             const tKeyStr = String(tBit);
                             if (!allKmerCounts[k][tKeyStr]) {
-                                allKmerCounts[k][tKeyStr] = new Uint16Array(totalN);
+                                allKmerCounts[k][tKeyStr] = new Uint32Array(totalN);
+                            }
+                            if (allKmerCounts[k][tKeyStr][gIdx] === 0xffffffff) {
+                                countOverflow = true;
+                                alert('Motif count exceeds the supported maximum (4294967295). Analysis stopped.');
+                                tbodyInitial.textContent = 'Count overflow: analysis stopped.';
+                                return;
                             }
                             allKmerCounts[k][tKeyStr][gIdx]++;
                         }
@@ -870,6 +1024,11 @@ function runRankedAnalysis(mode) {
             });
         }
 
+        if (countOverflow) {
+            batchCalculatedResults = {};
+            document.getElementById('downloadCsvBtn').style.display = 'none';
+            return;
+        }
         batchCalculatedResults = {};
         
         // 3. 各列の統計ループ (indexOfを撤廃したためバッチを何列回しても高速で終わる)
@@ -878,10 +1037,8 @@ function runRankedAnalysis(mode) {
             
             for (let item of parsedLines) {
                 if (item.tokens.length > targetColIdx) {
-                    let rawValStr = item.tokens[targetColIdx] ? item.tokens[targetColIdx].trim().replace(/['"\s]+/g, "") : "NaN";
-                    let val = parseFloat(rawValStr);
-                    
-                    if (!isNaN(val)) {
+                    const val = strictMeasurement(item.tokens[targetColIdx]);
+                    if (val !== null) {
                         // ✨連連辞書からインデックスを取得 (indexOfのループを排除)
                         let originalIdx = geneIdxLookup[item.id];
                         currentGeneList.push({ id: item.id, val: val, origIdx: originalIdx });
@@ -894,6 +1051,7 @@ function runRankedAnalysis(mode) {
             currentGeneList.sort((a, b) => b.val - a.val);
             const currentN = currentGeneList.length;
             let colResults = [];
+            const bhFamilySize = kSizes.reduce((n, k) => n + Object.keys(allKmerCounts[k]).length, 0);
 
             for (let k of kSizes) {
                 let kmerCounts = allKmerCounts[k];
@@ -956,7 +1114,7 @@ function runRankedAnalysis(mode) {
                         let dirTxt = isTop ? `Top (positive correlation)` : `Bottom (negative correlation)`;
                         details = `Optimal cutoff: Of ${dirTxt} ${bestCutoff}, ${bestHits} were kept (Expected: ${(bestCutoff * totalM / currentN).toFixed(1)})`;
 
-                        if (ratio > 1.0 && pValue < 0.05) {
+                        if (ratio > 1.0) {
                             colResults.push({ kmer: bitToSeq(Number(bX), k), kLen: k, pValue: pValue, logInfo: details, effectVal: ratio, effect: effectStr, children: [] });
                         }
 
@@ -971,27 +1129,24 @@ function runRankedAnalysis(mode) {
                         }
                         let num = (currentN * sumXY) - (sumX * sumY);
                         let den = Math.sqrt(((currentN * sumX2) - (sumX * sumX)) * ((currentN * sumY2) - (sumY * sumY)));
-                        let r = den === 0 ? 0 : num / den; if (isNaN(r)) r = 0;
+                        let r = den === 0 ? 0 : num / den; if (!Number.isFinite(r)) r = 0;
+                        r = Math.max(-1, Math.min(1, r));
 
                         let df = currentN - 2;
-                        let tVal = Math.abs(r) * Math.sqrt(df / (1 - r * r + 1e-9));
+                        let tVal = Math.abs(r) === 1 ? Infinity : Math.abs(r) * Math.sqrt(df / ((1 - r) * (1 + r)));
                         pValue = tStatToP(tVal, df);
                         effectStr = (r >= 0 ? "+" : "") + r.toFixed(3);
                         details = `Quantity-based correlation (Max. ${clipLimit} clipping)`;
 
-                        if (Math.abs(r) > 0.01 && pValue < 0.05) {
+                        { // Retain all Pearson hypotheses until BH adjustment.
                             colResults.push({ kmer: bitToSeq(Number(bX), k), kLen: k, pValue: pValue, logInfo: details, effectVal: Math.abs(r), effect: effectStr, children: [] });
                         }
                     }
                 }
             }
 
-            colResults.sort((a, b) => a.pValue - b.pValue);
-            for (let i = 0; i < colResults.length; i++) {
-                colResults[i].fdr = colResults[i].pValue * (colResults.length / (i + 1)); if (colResults[i].fdr > 1) colResults[i].fdr = 1;
-            }
-
-            let filtered = colResults.filter(r => r.fdr < 0.05);
+            applyBenjaminiHochberg(colResults, bhFamilySize);
+            let filtered = colResults.filter(r => r.fdr < 0.05 && r.effectVal > (mode === 'drim' ? 1 : 0.01));
             let clusteredResults = [];
             const enableCluster = document.getElementById('enableClusterB').checked, coreLen = parseInt(document.getElementById('clusterCoreLenB').value) || 4;
             if (enableCluster) { clusteredResults = applyClustering(filtered, coreLen); } 
@@ -1040,16 +1195,25 @@ function runRankedAnalysis(mode) {
         // 最初の列の結果をデフォルト表示
         switchResultColumn(parsedActiveCols[0]);
         document.getElementById('downloadCsvBtn').style.display = "inline-block";
-    }, 40);
+    });
 }
 
 function exportResultsToCsv() {
     if (!Object.keys(batchCalculatedResults).length) return;
-    let csv = "Target_data_column_index,k-mer(Seq/Core),Length(mer),Score_index,Detail,p-value,FDR(BH)-corrected\n";
+    const activeDB = getSelectedMotifDatabase(currentPrefixGlobal);
+    const annotationCache = new Map();
+    const annotationFor = kmer => {
+        if (!annotationCache.has(kmer)) {
+            const matches = activeDB.filter(m => matchConsensus(kmer, m.consensus));
+            annotationCache.set(kmer, matches.slice(0, 5).map(m => `[${m.db}] ${m.name}`).join('; ') + (matches.length > 5 ? '; …' : ''));
+        }
+        return annotationCache.get(kmer);
+    };
+    let csv = "\uFEFFTarget_data_column_index,k-mer(Seq/Core),Length(mer),Score_index,Detail,p-value,FDR(BH)-corrected,Known motif matches (up to 5; unranked)\n";
     
     for (let colKey in batchCalculatedResults) {
         batchCalculatedResults[colKey].forEach(r => {
-            csv += `"${colKey}列目","${r.kmer}",${r.kLen},"${r.effect}","${r.logInfo}",${r.pValue.toExponential(4)},${r.fdr ? r.fdr.toExponential(4) : '-'}\n`;
+            csv += [colKey, r.kmer, r.kLen, r.effect, r.logInfo, r.pValue.toExponential(4), r.fdr != null ? r.fdr.toExponential(4) : '-', annotationFor(r.kmer)].map(csvField).join(',') + '\r\n';
         });
     }
     
@@ -1203,16 +1367,20 @@ function generateViolinPlot(kmer, kLen, isCluster) {
         return;
     }
 
-    // Determine the original full k-mer analysis length selected in the input fields
-    // (e.g., if analyzing 6-mers but clustered into 4-mers, analysisLength = 6)
-    const analysisLength = window.currentGlobalKmerCountsForPlot[6] ? 6 : (window.currentGlobalKmerCountsForPlot[5] ? 5 : kLen);
+    const requestedKmer = kmer, requestedKLen = kLen;
+    const clusterRow = isCluster ? (batchCalculatedResults[activeColKey] || []).find(r=>r.kmer===kmer && r.kLen===kLen && r.representative) : null;
+    if(isCluster && !clusterRow){alert('Cluster representative is unavailable. Rerun the analysis.');return;}
+    if(clusterRow){kmer=clusterRow.representative.kmer;kLen=clusterRow.representative.kLen;}
+    // Use the clicked word (or the cluster's statistical representative) length.
+    const analysisLength = kLen;
 
     const container = document.getElementById('violinPlotContainer');
     const wrapper = document.getElementById('violinPngWrapper');
     if (!container || !wrapper) return;
 
-    window.currentActiveViolinKmer = kmer;
-    window.currentActiveViolinKLen = kLen;
+    window.currentActiveViolinKmer = requestedKmer;
+    window.currentActiveViolinIsCluster = Boolean(isCluster);
+    window.currentActiveViolinKLen = requestedKLen;
 
     document.getElementById('violinTitle').innerText = `🎻 Expression × Motif [ ${kmer} ] Number Distribution (Column ${activeColKey})`;
     container.style.display = "block"; 
@@ -1220,7 +1388,7 @@ function generateViolinPlot(kmer, kLen, isCluster) {
 
     let groups = { "0": [], "1": [], "2": [], "3+": [] };
     const bToInt = { 'A': 0, 'C': 1, 'G': 2, 'T': 3 };
-    const ignoreRC = document.getElementById('ignoreRCB').checked;
+    const ignoreRC = window.currentPlotIgnoreRC ?? document.getElementById('ignoreRCB').checked;
 
     // Helper helper to generate the accurate tracking hash used by the analysis engine
     function getMapKey(sequenceStr) {
@@ -1244,30 +1412,8 @@ function generateViolinPlot(kmer, kLen, isCluster) {
     // クリックされたキーに対応するすべての子メンバー配列（例: 4-merコアを含むすべての6-mer）のマップキーを事前に一括リスト化
     let targetKeysList = [];
 
-    if (isCluster) {
-        console.log(`[*] Scanning each member in the [${kmer}] aggregated group...`);
-        // Scan through all calculated entries in the counts pool to extract sub-variants
-        const availableHashes = Object.keys(window.currentGlobalKmerCountsForPlot[analysisLength] || {});
-        
-        // Brute-force reconstruct sequence strings to find elements containing the core
-        availableHashes.forEach(hashStr => {
-            let bit = parseInt(hashStr, 10);
-            // Reconstruct text sequence from bit
-            let bases = ['A', 'C', 'G', 'T'];
-            let reconstructedSeq = "";
-            for (let i = analysisLength - 1; i >= 0; i--) {
-                reconstructedSeq += bases[(bit >> (2 * i)) & 3];
-            }
-            
-            // If the 6-mer contains the 4-mer core, add its hash string to our tracker list
-            if (reconstructedSeq.toUpperCase().includes(kmer.toUpperCase())) {
-                targetKeysList.push(hashStr);
-            }
-        });
-    } else {
-        // Standard non-clustered row lookup
-        targetKeysList.push(getMapKey(kmer));
-    }
+    targetKeysList.push(getMapKey(kmer));
+    if(clusterRow) document.getElementById('violinTitle').innerText += ` — Core ${requestedKmer}; statistical representative ${kmer}`;
 
     // Remove duplicates to prevent double-counting if forward and reverse strands overlap
     targetKeysList = Array.from(new Set(targetKeysList));
@@ -1299,8 +1445,12 @@ function generateViolinPlot(kmer, kLen, isCluster) {
     const customMinInput = document.getElementById('violinYMin').value;
     const customMaxInput = document.getElementById('violinYMax').value;
     
-    let minY = (customMinInput !== "") ? parseFloat(customMinInput) : defaultMinY;
-    let maxY = (customMaxInput !== "") ? parseFloat(customMaxInput) : defaultMaxY;
+    let minY, maxY;
+    try {
+        minY = customMinInput.trim() ? strictMeasurement(customMinInput) : defaultMinY;
+        maxY = customMaxInput.trim() ? strictMeasurement(customMaxInput) : defaultMaxY;
+        if (minY === null || maxY === null || minY > maxY) throw new Error('Invalid plot Y range.');
+    } catch(e) { alert(e.message); return; }
     
     if(minY === maxY) { minY -= 1; maxY += 1; }
 
@@ -1376,7 +1526,7 @@ function generateViolinPlot(kmer, kLen, isCluster) {
 
 function replotCurrentViolin() {
     if (window.currentActiveViolinKmer && window.currentActiveViolinKLen) {
-        generateViolinPlot(window.currentActiveViolinKmer, window.currentActiveViolinKLen);
+        generateViolinPlot(window.currentActiveViolinKmer, window.currentActiveViolinKLen, window.currentActiveViolinIsCluster);
     }
 }
 
@@ -1526,7 +1676,7 @@ async function parseFilterIdsFile() {
     if (!fileInput || !fileInput.files || fileInput.files.length === 0) return null;
 
     const file = fileInput.files[0];
-    const colIdx = (parseInt(document.getElementById('filterIdColIdx').value) || 1) - 1;
+    const colIdx = requiredInteger(document.getElementById('filterIdColIdx').value, 'Filter ID column') - 1;
     const idSet = new Set();
 
     // 削るオペレーション用の変数を取得
@@ -1674,8 +1824,9 @@ async function extractGenomicRegionsFromFile() {
             }
 
             if (featureType === 'MRNA' || featureType === 'TRANSCRIPT') {
-                if (id && parent) {
-                    txMetadata[id] = { parent: parent, strand: strand, chrom: chrom };
+                if (id) {
+                    txMetadata[id] = { parent: parent || id, strand: strand, chrom: chrom,
+                        start: start, end: end, standalone: !parent };
                 }
             } else if (featureType === 'EXON') {
                 if (parent) {
@@ -1690,10 +1841,26 @@ async function extractGenomicRegionsFromFile() {
             }
         }
 
-        statusDiv.textContent = "Scanning genome FASTA in bounded chunks...";
-        const requests = planGenomeIntervals(txMetadata, txExons, txCds, otherFeatures, {
+        const extractionOptions = {
             region: regionType, anchor: customAnchor, up: upBp, down: downBp, filter: activeFilterSet
-        });
+        };
+        const matchedTxIds = Object.keys(txMetadata).filter(txId => !activeFilterSet ||
+            activeFilterSet.has(txId.toUpperCase()) || activeFilterSet.has(txMetadata[txId].parent.toUpperCase()));
+        const missingExonCount = matchedTxIds.filter(txId =>
+            !(txExons[txId]?.length || txExons[txMetadata[txId].parent]?.length)).length;
+        const requests = planGenomeIntervals(txMetadata, txExons, txCds, otherFeatures, extractionOptions);
+        if (!requests.size) {
+            let reason;
+            if (!Object.keys(txMetadata).length) reason = 'No identifiable mRNA/transcript records were found. Check their ID attributes.';
+            else if (!matchedTxIds.length) reason = 'No filter IDs match the annotated transcript or parent IDs. Check the ID list and transformation settings.';
+            else if (regionType === 'cDNA') reason = 'No matching transcripts have exon records. Complete cDNA cannot be reconstructed from mRNA spans or CDS alone.';
+            else if (regionType === 'cds_feat' || (regionType === 'custom' && customAnchor.startsWith('cds_'))) reason = 'No matching CDS records were found for the selected transcripts.';
+            else if (regionType === 'other') reason = 'No matching records were found for the selected GFF feature type.';
+            else reason = 'No usable exon or mRNA boundaries were found for the selected transcripts.';
+            statusDiv.textContent = '❌ ' + reason;
+            return;
+        }
+        statusDiv.textContent = "Scanning genome FASTA in bounded chunks...";
         const streamedGenome = await readGenomeIntervals(fileFa, requests, bases => {
             statusDiv.textContent = `Scanning genome: ${(bases / 1000000).toFixed(1)} million bases...`;
         });
@@ -1725,7 +1892,9 @@ async function extractGenomicRegionsFromFile() {
                 cds = txCds[meta.parent];
             }
 
-            if (exons.length === 0 || !genome[meta.chrom]) continue;
+            const geometry = resolveExtractionGeometry(meta, exons, cds,
+                otherFeatures[txId] || otherFeatures[meta.parent] || [], extractionOptions);
+            if (!geometry || !genome[meta.chrom]) continue;
 
             const chrom = meta.chrom;
             const strand = meta.strand;
@@ -1774,16 +1943,13 @@ async function extractGenomicRegionsFromFile() {
                 threeUtr = fullCdnaSeq.substring(cdsEndIdx + 1);
             }
 
-            let customAnchorCoord = null;
-            if (regionType === 'custom') {
-                if (customAnchor === 'cdna_5') {
-                    customAnchorCoord = (strand === '-') ? Math.max(...exons.map(e => e[1])) : Math.min(...exons.map(e => e[0]));
-                } else if (customAnchor === 'cdna_3') {
-                    customAnchorCoord = (strand === '-') ? Math.min(...exons.map(e => e[0])) : Math.max(...exons.map(e => e[1]));
-                } else if (cdsMin !== null) {
-                    if (customAnchor === 'cds_5') customAnchorCoord = (strand === '-') ? cdsMax : cdsMin;
-                    else if (customAnchor === 'cds_3') customAnchorCoord = (strand === '-') ? cdsMin : cdsMax;
-                }
+            const directCdsLength = cds.reduce((sum, interval) => sum + interval[1] - interval[0] + 1, 0);
+            if (!exons.length && regionType === 'cds_feat') {
+                const orderedCds = [...cds].sort((a, b) => strand === '-' ? b[0] - a[0] : a[0] - b[0]);
+                cdsSeq = orderedCds.map(([start, end]) => {
+                    const segment = chrSeq.substring(start - 1, end);
+                    return strand === '-' ? getReverseComplementString(segment) : segment;
+                }).join('');
             }
 
             processedTranscripts[txId] = {
@@ -1792,14 +1958,17 @@ async function extractGenomicRegionsFromFile() {
                 chrom: chrom,
                 strand: strand,
                 totalLen: cdnaLen,
-                cdsLen: wantSplicedSequence ? cdsSeq.length :
+                cdsLen: !exons.length ? directCdsLength : wantSplicedSequence ? cdsSeq.length :
                     (cdsStartIdx !== null && cdsEndIdx !== null ? Math.max(0, cdsEndIdx - cdsStartIdx + 1) : 0),
                 fullCdna: fullCdnaSeq,
                 fiveUtr: fiveUtr,
                 cds: cdsSeq,
                 threeUtr: threeUtr,
-                customAnchorCoord: customAnchorCoord,
-                exons: exons
+                customAnchorCoord: geometry.customAnchorCoord,
+                exons: exons,
+                geneSpan: geometry.geneSpan,
+                boundarySource: geometry.boundarySource,
+                standalone: !!meta.standalone
             };
         }
 
@@ -1812,6 +1981,8 @@ async function extractGenomicRegionsFromFile() {
 
         let outputFasta = "";
         let extractedCount = 0;
+        let mrnaBoundaryCount = 0;
+        let standaloneCount = 0;
 
         for (const geneId in geneLocusBuckets) {
             const variants = geneLocusBuckets[geneId];
@@ -1833,8 +2004,7 @@ async function extractGenomicRegionsFromFile() {
                 const headerId = longestCdsOnly ? geneId : item.txId;
 
                 if (regionType === 'gene') {
-                    let minS = Math.min(...item.exons.map(e => e[0]));
-                    let maxE = Math.max(...item.exons.map(e => e[1]));
+                    const [minS, maxE] = item.geneSpan;
                     finalSeq = genome[item.chrom].substring(minS - 1, maxE);
                     if (item.strand === '-') finalSeq = getReverseComplementString(finalSeq);
                     metaLabel = `gene_span:${item.chrom}:${minS}-${maxE}`;
@@ -1860,17 +2030,25 @@ async function extractGenomicRegionsFromFile() {
                 }
 
                 if (!finalSeq || finalSeq.length === 0) return;
+                if (item.boundarySource === 'mRNA') {
+                    metaLabel += '; Boundary source: mRNA';
+                    mrnaBoundaryCount++;
+                }
+                if (item.standalone) standaloneCount++;
                 outputFasta += `>${headerId} [${metaLabel}]\n${finalSeq}\n`;
                 extractedCount++;
             });
         }
 
         if (extractedCount === 0) {
-            statusDiv.innerHTML = "❌ No gene was extracted. Please check the input files and filter settings.";
+            statusDiv.textContent = '❌ No sequence was extracted. Check chromosome names, annotation coordinates, and chromosome-edge clipping.';
             document.getElementById('injectGroup').style.display = "none";
         } else {
             extractedFastaString = outputFasta;
             statusDiv.innerHTML = `✅ Completed！ Extracted were ${extractedCount} sequences.`;
+            if (mrnaBoundaryCount) statusDiv.textContent += ` Boundary source: mRNA was used for ${mrnaBoundaryCount} sequences because exon annotations are absent. These annotated boundaries are not verified transcription start sites.`;
+            if (standaloneCount) statusDiv.textContent += ` ${standaloneCount} transcripts without Parent were handled independently; gene-level isoform grouping is unavailable for them.`;
+            if (regionType === 'cDNA' && missingExonCount) statusDiv.textContent += ` Skipped ${missingExonCount} transcripts without exon records.`;
             
             document.getElementById('injectGroup').style.display = "flex";
             setTimeout(() => {
@@ -1957,6 +2135,7 @@ function injectExtractedData(targetMode) {
 
     // 画面上で削ったり足したりした設定を「すべての数万本」のFASTAデータ全体に適用
     const processedText = transformFastaHeaders(extractedFastaString);
+    try { parseFastaWithIds(processedText); } catch(e) { alert(e.message); return; }
 
     if (targetMode === 'A-Target') {
         const textareaA1 = document.getElementById('fasta1');
@@ -1990,7 +2169,7 @@ function toggleViolinContainer() {
     }
 }
 
-/* Genome I/O repair only. GFF interpretation and analysis algorithms remain in index.html. */
+/* Bounded genome I/O and shared extraction geometry. */
 'use strict';
 
 // A 5' boundary is immediately before the first base in transcript orientation;
@@ -2006,8 +2185,42 @@ function customExtractionWindow(anchor, strand, anchorType, upstream, downstream
         : [boundary - upstream, boundary + downstream];
 }
 
-// Plan exactly the intervals required by the existing extraction branches.
-// In particular, do not introduce exon fallbacks or change GFF ID/Parent requirements.
+// Resolve the same coordinates for both interval planning and sequence generation.
+// Missing exon records do not imply that CDS records are complete exons.
+function resolveExtractionGeometry(meta, exons, cds, features, options) {
+    const min = spans => spans.reduce((v, x) => Math.min(v, x[0]), Infinity);
+    const max = spans => spans.reduce((v, x) => Math.max(v, x[1]), -Infinity);
+    const mrna = Number.isSafeInteger(meta.start) && Number.isSafeInteger(meta.end) &&
+        meta.start > 0 && meta.end >= meta.start ? [[meta.start, meta.end]] : [];
+    const ranges = [];
+    const result = { ranges, boundarySource: null, geneSpan: null, customAnchorCoord: null };
+    if (options.region === 'gene') {
+        const spans = exons.length ? exons : mrna;
+        if (!spans.length) return null;
+        result.geneSpan = [min(spans), max(spans)];
+        result.boundarySource = exons.length ? 'exon' : 'mRNA';
+        ranges.push({ chrom: meta.chrom, start: result.geneSpan[0] - 1, end: result.geneSpan[1] });
+    } else if (options.region === 'cDNA' || options.region === 'cds_feat') {
+        if (options.region === 'cDNA' && !exons.length) return null;
+        if (options.region === 'cds_feat' && !cds.length) return null;
+        const spans = exons.length ? exons : cds;
+        for (const [start, end] of spans) ranges.push({ chrom: meta.chrom, start: start - 1, end });
+    } else if (options.region === 'other') {
+        if (!features.length) return null;
+        for (const feature of features) ranges.push({ chrom: feature.chrom, start: feature.start - 1, end: feature.end });
+    } else if (options.region === 'custom') {
+        const transcriptAnchor = options.anchor.startsWith('cdna_');
+        const spans = transcriptAnchor ? (exons.length ? exons : mrna) : cds;
+        if (!spans.length) return null;
+        const five = options.anchor.endsWith('_5');
+        result.customAnchorCoord = (meta.strand === '-') === five ? max(spans) : min(spans);
+        result.boundarySource = transcriptAnchor ? (exons.length ? 'exon' : 'mRNA') : 'CDS';
+        const [start, end] = customExtractionWindow(result.customAnchorCoord, meta.strand, options.anchor, options.up, options.down);
+        ranges.push({ chrom: meta.chrom, start, end });
+    }
+    return ranges.length ? result : null;
+}
+
 function planGenomeIntervals(txMetadata, txExons, txCds, otherFeatures, options) {
     const requests = new Map();
     function add(chrom, start, end) {
@@ -2020,22 +2233,9 @@ function planGenomeIntervals(txMetadata, txExons, txCds, otherFeatures, options)
         if (options.filter && !options.filter.has(txId.toUpperCase()) && !options.filter.has(meta.parent.toUpperCase())) continue;
         const exons = txExons[txId]?.length ? txExons[txId] : (txExons[meta.parent] || []);
         const cds = txCds[txId]?.length ? txCds[txId] : (txCds[meta.parent] || []);
-        if (!exons.length) continue; // Same requirement as the original engine.
-        const min = a => a.reduce((v, x) => Math.min(v, x[0]), Infinity);
-        const max = a => a.reduce((v, x) => Math.max(v, x[1]), -Infinity);
-        if (options.region === 'gene') add(meta.chrom, min(exons) - 1, max(exons));
-        else if (options.region === 'cDNA' || options.region === 'cds_feat') {
-            for (const [start, end] of exons) add(meta.chrom, start - 1, end);
-        } else if (options.region === 'other') {
-            for (const feature of (otherFeatures[txId] || otherFeatures[meta.parent] || [])) add(feature.chrom, feature.start - 1, feature.end);
-        } else if (options.region === 'custom') {
-            const spans = options.anchor.startsWith('cdna_') ? exons : cds;
-            if (!spans.length) continue;
-            const five = options.anchor.endsWith('_5');
-            const anchor = (meta.strand === '-') === five ? max(spans) : min(spans);
-            const [start, end] = customExtractionWindow(anchor, meta.strand, options.anchor, options.up, options.down);
-            add(meta.chrom, start, end);
-        }
+        const features = otherFeatures[txId] || otherFeatures[meta.parent] || [];
+        const geometry = resolveExtractionGeometry(meta, exons, cds, features, options);
+        if (geometry) for (const range of geometry.ranges) add(range.chrom, range.start, range.end);
     }
     for (const [chrom, ranges] of requests) {
         ranges.sort((a, b) => a[0] - b[0]);
@@ -2185,6 +2385,22 @@ async function readGenomeIntervals(file, requests, onProgress = () => {}) {
     metrics.scannedBases = scanned;
     return { genome, metrics };
 }
+
+'use strict';
+// One family contains all observed k-mers over the selected lengths, before
+// effect/significance filtering. Missing, untestable hypotheses count as P=1.
+function applyBenjaminiHochberg(rows, totalTests = rows.length) {
+    if (!Number.isSafeInteger(totalTests) || totalTests < rows.length) throw new Error('Invalid BH family size.');
+    const probability = row => Number.isFinite(row.pValue) && row.pValue >= 0 && row.pValue <= 1 ? row.pValue : 1;
+    rows.sort((a, b) => probability(a) - probability(b));
+    let minimum = 1;
+    for (let i = rows.length - 1; i >= 0; i--) {
+        minimum = Math.min(minimum, probability(rows[i]) * totalTests / (i + 1));
+        rows[i].fdr = minimum;
+    }
+    return rows;
+}
+
 
 </script>
 </body>
