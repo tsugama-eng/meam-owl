@@ -1060,63 +1060,81 @@ function runRankedAnalysis(mode) {
                     let pValue = 1.0; let effectStr = ""; let details = "";
 
                     if (mode === 'drim') {
-                        let presenceFlags = new Uint8Array(currentN);
-                        let totalM = 0;
+                        // 🏃‍♂️ MEAM-OWL数学数理修正版：DRIMust（動的閾値・双方向ランク濃縮検定）
+                        const totalM = currentN - (originalCounts.filter ? originalCounts.filter(x => x===0).length : 0); // 簡易カウント
+                        // 実際には全currentN遺伝子のうち、このkmerを持つ遺伝子数(totalM)を正確にカウント
+                        let calcM = 0;
                         for (let i = 0; i < currentN; i++) {
-                            if (originalCounts[currentGeneList[i].origIdx] > 0) { presenceFlags[i] = 1; totalM++; }
+                            if (originalCounts[currentGeneList[i].origIdx] > 0) calcM++;
                         }
-                        if (totalM < 2 || totalM === currentN) continue;
+                        
+                        if (calcM < 2 || calcM >= currentN) continue;
 
                         let step = currentN > 1000 ? Math.floor(currentN / 200) : 1; if (step < 1) step = 1;
+                        // 全遺伝子（100%）を含めるカットオフは幽霊有意を招くため、最大スキャン範囲を95%に制限
+                        const maxScanRange = Math.floor(currentN * 0.95);
 
+                        // ─── 🅰️ 高発現側（Top / positive correlation）のスキャン ───
                         let minP_top = 1.0; let bestCutoff_top = 0; let bestHits_top = 0; let currentHits_top = 0;
-                        for (let n = 1; n <= currentN; n++) {
-                            if (presenceFlags[n - 1] === 1) currentHits_top++;
-                            if (n % step === 0 || n === currentN) {
+                        for (let n = 1; n <= maxScanRange; n++) {
+                            if (originalCounts[currentGeneList[n - 1].origIdx] > 0) currentHits_top++;
+                            
+                            if (n % step === 0 || n === maxScanRange) {
                                 if (currentHits_top === 0) continue;
-                                let expected = n * (totalM / currentN);
-                                let variance = n * (totalM / currentN) * ((currentN - totalM) / currentN) * ((currentN - n) / (currentN - 1 || 1));
-                                let p = 1.0;
-                                if (variance > 0 && currentHits_top > expected) {
-                                    let z = (currentHits_top - 0.5 - expected) / Math.sqrt(variance);
-                                    p = zScoreToP(z);
+                                let expected = n * (calcM / currentN);
+                                // 期待値より多くヒット（濃縮）している場合のみ検定
+                                if (currentHits_top > expected) {
+                                    let variance = n * (calcM / currentN) * ((currentN - calcM) / currentN) * ((currentN - n) / (currentN - 1));
+                                    if (variance > 0) {
+                                        // 連続修正を安全に適用
+                                        let z = (currentHits_top - 0.5 - expected) / Math.sqrt(variance);
+                                        let p = zScoreToP(z); 
+                                        if (p < minP_top) { minP_top = p; bestCutoff_top = n; bestHits_top = currentHits_top; }
+                                    }
                                 }
-                                if (p < minP_top) { minP_top = p; bestCutoff_top = n; bestHits_top = currentHits_top; }
                             }
                         }
 
+                        // ─── 🅱️ 低発現側（Bottom / negative correlation）のスキャン ───
+                        // 💡お尻側（低発現側）からのスキャンは、インデックスを逆順（currentN-n）にして正しく走査
                         let minP_bot = 1.0; let bestCutoff_bot = 0; let bestHits_bot = 0; let currentHits_bot = 0;
-                        for (let n = 1; n <= currentN; n++) {
-                            if (presenceFlags[currentN - n] === 1) currentHits_bot++;
-                            if (n % step === 0 || n === currentN) {
+                        for (let n = 1; n <= maxScanRange; n++) {
+                            if (originalCounts[currentGeneList[currentN - n].origIdx] > 0) currentHits_bot++;
+                            
+                            if (n % step === 0 || n === maxScanRange) {
                                 if (currentHits_bot === 0) continue;
-                                let expected = n * (totalM / currentN);
-                                let variance = n * (totalM / currentN) * ((currentN - totalM) / currentN) * ((currentN - n) / (currentN - 1 || 1));
-                                let p = 1.0;
-                                if (variance > 0 && currentHits_bot > expected) {
-                                    let z = (currentHits_bot - 0.5 - expected) / Math.sqrt(variance);
-                                    p = zScoreToP(z);
+                                let expected = n * (calcM / currentN);
+                                // 低発現の最上位に濃縮している場合のみ検定
+                                if (currentHits_bot > expected) {
+                                    let variance = n * (calcM / currentN) * ((currentN - calcM) / currentN) * ((currentN - n) / (currentN - 1));
+                                    if (variance > 0) {
+                                        let z = (currentHits_bot - 0.5 - expected) / Math.sqrt(variance);
+                                        let p = zScoreToP(z);
+                                        if (p < minP_bot) { minP_bot = p; bestCutoff_bot = n; bestHits_bot = currentHits_bot; }
+                                    }
                                 }
-                                if (p < minP_bot) { minP_bot = p; bestCutoff_bot = n; bestHits_bot = currentHits_bot; }
                             }
                         }
 
+                        // ─── 🅾️ 両側検定としての統合とBonferroni型多重比較補正 ───
                         let isTop = minP_top <= minP_bot;
                         pValue = isTop ? minP_top : minP_bot;
                         let bestCutoff = isTop ? bestCutoff_top : bestCutoff_bot;
                         let bestHits = isTop ? bestHits_top : bestHits_bot;
 
-                        let numTests = Math.floor(currentN / step) * 2;
+                        // 探索スペースの広さに応じた厳密な補正
+                        let numTests = Math.floor(maxScanRange / step) * 2;
                         pValue = pValue * numTests; if (pValue > 1) pValue = 1;
 
-                        let ratio = (bestHits / (bestCutoff || 1)) / (totalM / currentN);
+                        // 統計的に全く濃縮がない（1倍）場合はスキップ
+                        let ratio = (bestHits / (bestCutoff || 1)) / (calcM / currentN);
+                        if (ratio <= 1.05 || pValue >= 0.05) { continue; }
+
                         effectStr = (isTop ? "" : "-") + ratio.toFixed(2) + "x";
                         let dirTxt = isTop ? `Top (positive correlation)` : `Bottom (negative correlation)`;
-                        details = `Optimal cutoff: Of ${dirTxt} ${bestCutoff}, ${bestHits} were kept (Expected: ${(bestCutoff * totalM / currentN).toFixed(1)})`;
+                        details = `Optimal cutoff: Of ${dirTxt} ${bestCutoff}, ${bestHits} were kept (Expected: ${(bestCutoff * calcM / currentN).toFixed(1)})`;
 
-                        if (ratio > 1.0) {
-                            colResults.push({ kmer: bitToSeq(Number(bX), k), kLen: k, pValue: pValue, logInfo: details, effectVal: ratio, effect: effectStr, children: [] });
-                        }
+                        colResults.push({ kmer: bitToSeq(Number(bX), k), kLen: k, pValue: pValue, logInfo: details, effectVal: ratio, effect: effectStr, children: [] });
 
                     } else if (mode === 'pearson') {
                         let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0, sumY2 = 0;
