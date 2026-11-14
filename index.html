@@ -1370,9 +1370,11 @@ function getReverseComplementString(seq) {
 }
 
 function downloadExtractedFasta() {
-    if(!extractedFastaString) return;
+    if (typeof extractedFastaString === 'undefined' || !extractedFastaString) return;
+    const processedText = transformFastaHeaders(extractedFastaString);
+    try { parseFastaWithIds(processedText); } catch(e) { alert(e.message); return; }
     const link = document.createElement("a");
-    link.href = URL.createObjectURL(new Blob([extractedFastaString], { type: "text/plain;" }));
+    link.href = URL.createObjectURL(new Blob([processedText], { type: "text/plain;" }));
     link.download = `extracted_regions.fasta`; link.click();
 }
 
